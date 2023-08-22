@@ -1,0 +1,21 @@
+name: CI
+on:
+  push:
+    branches:
+      - master
+      - 'release/**'
+  pull_request:
+jobs:
+  main:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v4
+        with:
+          go-version: 1.21.x
+      - run: go test -covermode=atomic -race -v ./...
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v3.7.0
+        with:
+          version: v1.54.2
+          args: --verbose

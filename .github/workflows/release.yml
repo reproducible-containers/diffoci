@@ -1,0 +1,67 @@
+# Forked from https://github.com/containerd/nerdctl/blob/v0.8.1/.github/workflows/release.yml
+# Apache License 2.0
+
+name: Release
+on:
+  push:
+    branches:
+      - 'master'
+    tags:
+      - 'v*'
+  pull_request:
+    branches:
+      - 'master'
+jobs:
+  release:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          # https://github.com/reproducible-containers/repro-get/issues/3
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+      - name: "Make artifacts"
+        run: make artifacts.docker
+      - name: "SHA256SUMS"
+        run: |
+          cat _artifacts/SHA256SUMS
+      - name: "The sha256sum of the SHA256SUMS file"
+        run: |
+          (cd _artifacts; sha256sum SHA256SUMS)
+      - name: "Prepare the release note"
+        run: |
+          tag="${GITHUB_REF##*/}"
+          shasha=$(sha256sum _artifacts/SHA256SUMS | awk '{print $1}')
+          cat <<-EOF | tee /tmp/release-note.txt
+          ${tag}
+
+          (Changes to be documented)
+
+          ## Usage
+          \`\`\`
+          # Basic
+          diffoci diff --semantic alpine:3.18.2 alpine:3.18.3
+
+          ## Dump conflicting files to ~/diff
+          diffoci diff --semantic --report-dir=~/diff alpine:3.18.2 alpine:3.18.3
+
+          ## Compare local Docker images
+          diffoci diff --semantic docker://foo docker://bar
+          \`\`\`
+          ## About the files
+          - - -
+          The binaries were built automatically on GitHub Actions.
+          The build log is available for 90 days: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+          The sha256sum of the SHA256SUMS file itself is \`${shasha}\` .
+          EOF
+      - name: "Create release"
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          tag="${GITHUB_REF##*/}"
+          asset_flags=()
+          for f in _artifacts/*; do asset_flags+=("-a" "$f"); done
+          hub release create "${asset_flags[@]}" -F /tmp/release-note.txt --draft "${tag}"
