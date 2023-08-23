@@ -29,6 +29,10 @@ File    usr/lib/ossl-modules/legacy.so       5b677eca0c3a3ac53c1a49fbac49534ea28
 ```
 
 ## Installation
+### Binary
+Binaries are available for Linux and macOS: https://github.com/reproducible-containers/diffoci/releases
+
+### Source
 Needs Go 1.21 or later.
 ```bash
 go install github.com/reproducible-containers/diffoci/cmd/diffoci@latest
