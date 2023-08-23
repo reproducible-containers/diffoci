@@ -155,6 +155,23 @@ func (d *differ) raiseEventWithEventTreeNode(ctx context.Context, node, newNode 
 	return eventErr
 }
 
+func manifestDesc(ctx context.Context, cs content.Provider, indexDesc ocispec.Descriptor, platMC platforms.MatchComparer) (*ocispec.Descriptor, error) {
+	p, err := content.ReadBlob(ctx, cs, indexDesc)
+	if err != nil {
+		return nil, err
+	}
+	var idx ocispec.Index
+	if err := json.Unmarshal(p, &idx); err != nil {
+		return nil, err
+	}
+	for _, mani := range idx.Manifests {
+		if mani.Platform == nil || platMC.Match(*mani.Platform) {
+			return &mani, nil
+		}
+	}
+	return nil, errdefs.ErrNotFound
+}
+
 func (d *differ) diff(ctx context.Context, node *EventTreeNode, in [2]EventInput) error {
 	var errs []error
 	negligibleFields := []string{"Annotations"}
@@ -184,12 +201,48 @@ func (d *differ) diff(ctx context.Context, node *EventTreeNode, in [2]EventInput
 	}
 	switch mt := in[0].Descriptor.MediaType; {
 	case images.IsIndexType(mt):
-		if err := d.diffIndex(ctx, node, in); err != nil {
-			errs = append(errs, err)
+		if images.IsManifestType(in[1].Descriptor.MediaType) {
+			log.G(ctx).Warn("Comparing multi-platform image vs single-platform image (EXPERIMENTAL)")
+			mani0Desc, err := manifestDesc(ctx, d.cs, *in[0].Descriptor, d.platMC)
+			if err != nil {
+				return err
+			}
+			newNode := EventTreeNode{
+				Context: path.Join(node.Context, "manifest"),
+				Event: Event{
+					Type:   EventTypeManifestBlobMismatch,
+					Inputs: in,
+					Diff:   cmp.Diff(*in[0].Descriptor, *in[1].Descriptor),
+					Note:   "index vs manifest",
+				},
+			}
+			childInputs := [2]EventInput{
+				{
+					Descriptor: mani0Desc,
+				}, {
+					Descriptor: in[1].Descriptor,
+				},
+			}
+			if diffErr := d.diff(ctx, &newNode, childInputs); diffErr != nil {
+				errs = append(errs, err)
+			}
+			if len(newNode.Children) > 0 {
+				if err := d.raiseEventWithEventTreeNode(ctx, node, &newNode); err != nil {
+					errs = append(errs, err)
+				}
+			} // else no event happens
+		} else {
+			if err := d.diffIndex(ctx, node, in); err != nil {
+				errs = append(errs, err)
+			}
 		}
 	case images.IsManifestType(mt):
-		if err := d.diffManifest(ctx, node, in); err != nil {
-			errs = append(errs, err)
+		if images.IsIndexType(in[1].Descriptor.MediaType) {
+			errs = append(errs, errors.New("comparing single-platform image vs multi-platform image is not supported (Hint: swap input 0 and 1)"))
+		} else {
+			if err := d.diffManifest(ctx, node, in); err != nil {
+				errs = append(errs, err)
+			}
 		}
 	case images.IsConfigType(mt):
 		if err := d.diffConfig(ctx, node, in); err != nil {
