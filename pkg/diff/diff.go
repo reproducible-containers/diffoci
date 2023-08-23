@@ -315,8 +315,8 @@ func (d *differ) diffDescriptorSliceField(ctx context.Context, node *EventTreeNo
 		ev := Event{
 			Type:   evType,
 			Inputs: in,
-			Diff:   cmp.Diff(descSlices, descSlices),
-			Note:   fmt.Sprintf("field %q: length mismatch", fieldName),
+			Diff:   cmp.Diff(descSlices[0], descSlices[1]),
+			Note:   fmt.Sprintf("field %q: length mismatch (%d vs %d)", fieldName, len(descSlices[0]), len(descSlices[1])),
 		}
 		return d.raiseEvent(ctx, node, ev, strings.ToLower(fieldName))
 	}
@@ -333,7 +333,7 @@ func (d *differ) diffDescriptorSliceField(ctx context.Context, node *EventTreeNo
 			Event: Event{
 				Type:   evType,
 				Inputs: in,
-				Diff:   cmp.Diff(descSlices[0], descSlices[1]),
+				Diff:   cmp.Diff(descSlices[0][i], descSlices[1][i]),
 				Note:   fmt.Sprintf("field %q", fieldNameI),
 			},
 		}
@@ -494,17 +494,24 @@ func (d *differ) diffManifest(ctx context.Context, node *EventTreeNode, in [2]Ev
 	}
 
 	// Compare Layers
-	if err := d.diffDescriptorSliceField(ctx, node, in, EventTypeManifestBlobMismatch, [2][]ocispec.Descriptor{
-		in[0].Manifest.Layers,
-		in[1].Manifest.Layers,
-	}, "Layers", maxLayers,
-		func(desc ocispec.Descriptor) (tolerable bool, vErr error) {
-			if !images.IsLayerType(desc.MediaType) {
-				return false, fmt.Errorf("expected a layer type, got %q", desc.MediaType)
-			}
-			return true, nil
-		}); err != nil {
-		errs = append(errs, err)
+	if len(in[0].Manifest.Layers) == len(in[1].Manifest.Layers) {
+		if err := d.diffDescriptorSliceField(ctx, node, in, EventTypeManifestBlobMismatch, [2][]ocispec.Descriptor{
+			in[0].Manifest.Layers,
+			in[1].Manifest.Layers,
+		}, "Layers", maxLayers,
+			func(desc ocispec.Descriptor) (tolerable bool, vErr error) {
+				if !images.IsLayerType(desc.MediaType) {
+					return false, fmt.Errorf("expected a layer type, got %q", desc.MediaType)
+				}
+				return true, nil
+			}); err != nil {
+			errs = append(errs, err)
+		}
+	} else {
+		log.G(ctx).Warningf("Layer length mismatch (%d vs %d), squashing for comparison (EXPERIMENTAL)", len(in[0].Manifest.Layers), len(in[1].Manifest.Layers))
+		if err := d.diffLayersWithSquashing(ctx, node, in); err != nil {
+			errs = append(errs, err)
+		}
 	}
 
 	// Compare Subject
@@ -609,6 +616,29 @@ func (d *differ) diffConfig(ctx context.Context, node *EventTreeNode, in [2]Even
 	return errors.Join(errs...)
 }
 
+func (d *differ) diffLayersWithSquashing(ctx context.Context, node *EventTreeNode, in [2]EventInput) error {
+	tr0, trCloser0, err := openTarReaderWithSquashing(ctx, d.cs, in[0].Manifest.Layers)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if trCloserErr0 := trCloser0(); trCloserErr0 != nil {
+			log.G(ctx).WithError(trCloserErr0).Warn("failed to close tar reader 0")
+		}
+	}()
+
+	tr1, trCloser1, err := openTarReaderWithSquashing(ctx, d.cs, in[1].Manifest.Layers)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if trCloserErr1 := trCloser1(); trCloserErr1 != nil {
+			log.G(ctx).WithError(trCloserErr1).Warn("failed to close tar reader 1")
+		}
+	}()
+	return d.diffLayerWithTarReader(ctx, node, in, tr0, tr1)
+}
+
 func (d *differ) diffLayer(ctx context.Context, node *EventTreeNode, in [2]EventInput) error {
 	tr0, trCloser0, err := openTarReader(ctx, d.cs, *in[0].Descriptor)
 	if err != nil {
@@ -629,7 +659,16 @@ func (d *differ) diffLayer(ctx context.Context, node *EventTreeNode, in [2]Event
 			log.G(ctx).WithError(trCloserErr1).Warn("failed to close tar reader 1")
 		}
 	}()
+	return d.diffLayerWithTarReader(ctx, node, in, tr0, tr1)
+}
 
+// tarReader is implemented by *tar.Reader .
+type tarReader interface {
+	io.Reader
+	Next() (*tar.Header, error)
+}
+
+func (d *differ) diffLayerWithTarReader(ctx context.Context, node *EventTreeNode, in [2]EventInput, tr0, tr1 tarReader) error {
 	var (
 		tarEntries0 []*TarEntry
 		tarEntries1 []*TarEntry
@@ -702,6 +741,7 @@ func (d *differ) diffLayer(ctx context.Context, node *EventTreeNode, in [2]Event
 			dgst[0], dgst[1] = untar0.Digest, untar1.Digest
 			extractedPaths[0], extractedPaths[1] = untar0.Path, untar1.Path
 		} else {
+			var err error
 			dgst[0], err = digest.SHA256.FromReader(tr0)
 			if err != nil {
 				errs = append(errs, err)
@@ -874,7 +914,7 @@ func (d *differ) diffTarEntry(ctx context.Context, node *EventTreeNode, in [2]Ev
 	return dirsToBeRemovedIfEmpty, errors.Join(errs...)
 }
 
-func openTarReader(ctx context.Context, cs content.Provider, desc ocispec.Descriptor) (tr *tar.Reader, closer func() error, err error) {
+func openTarReader(ctx context.Context, cs content.Provider, desc ocispec.Descriptor) (tr tarReader, closer func() error, err error) {
 	if desc.Size > int64(maxTarBlobSize) {
 		return nil, nil, fmt.Errorf("too large tar blob (%d > %d bytes)", desc.Size, int64(maxTarBlobSize))
 	}
@@ -890,6 +930,55 @@ func openTarReader(ctx context.Context, cs content.Provider, desc ocispec.Descri
 	}
 	lr := io.LimitReader(dr, maxTarStreamSize)
 	return tar.NewReader(lr), ra.Close, nil
+}
+
+func openTarReaderWithSquashing(ctx context.Context, cs content.Provider, descs []ocispec.Descriptor) (tr tarReader, closer func() error, err error) {
+	tarReaders := make([]tarReader, len(descs))
+	closers := make([]func() error, len(descs))
+	for i := 0; i < len(descs); i++ {
+		var err error
+		tarReaders[i], closers[i], err = openTarReader(ctx, cs, descs[i])
+		if err != nil {
+			return nil, nil, err
+		}
+	}
+	tr = newSquashedTarReader(tarReaders)
+	closer = func() error {
+		var errs []error
+		for _, f := range closers {
+			if err := f(); err != nil {
+				errs = append(errs, err)
+			}
+		}
+		return errors.Join(errs...)
+	}
+	return tr, closer, nil
+}
+
+func newSquashedTarReader(tarReaders []tarReader) tarReader {
+	return &squashedTarReader{
+		tarReaders: tarReaders,
+		current:    0,
+	}
+}
+
+type squashedTarReader struct {
+	tarReaders []tarReader
+	current    int
+}
+
+func (r *squashedTarReader) Read(p []byte) (int, error) {
+	return r.tarReaders[r.current].Read(p)
+}
+
+func (r *squashedTarReader) Next() (*tar.Header, error) {
+begin:
+	hdr, err := r.tarReaders[r.current].Next()
+	if errors.Is(err, io.EOF) && r.current < len(r.tarReaders)-1 {
+		r.current++
+		goto begin
+	}
+	return hdr, err
 }
 
 func readBlobWithType[T interface {
