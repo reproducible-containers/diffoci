@@ -944,39 +944,79 @@ func (h *defaultEventHandler) HandleEventTreeNode(ctx context.Context, node *Eve
 		fmt.Fprintln(h.tw, "TYPE\tNAME\tINPUT-0\tINPUT-1")
 	})
 	in0, in1 := ev.Inputs[0], ev.Inputs[1]
+	d0, d1 := "?", "?"
+	if ev.Note != "" {
+		d0, d1 = ev.Note, ""
+	}
+	name := "-"
+	if node.Context != "" {
+		name = "ctx:" + node.Context
+	}
 	// TODO: colorize
 	switch ev.Type {
 	case EventTypeDescriptorMismatch:
 		desc0, desc1 := in0.Descriptor, in1.Descriptor
-		d0, d1 := "?", "?"
+		name = desc0.MediaType
 		if desc0.MediaType != desc1.MediaType {
 			d0, d1 = desc0.MediaType, desc1.MediaType
 		} else if desc0.Digest != desc1.Digest {
 			d0, d1 = desc0.Digest.String(), desc1.Digest.String()
 			d0, d1 = strings.TrimPrefix(d0, "sha256:"), strings.TrimPrefix(d1, "sha256:")
 		}
-		fmt.Fprintf(h.tw, "Desc\t%s\t%s\t%s\n", desc0.MediaType, d0, d1)
+		fmt.Fprintln(h.tw, "Desc\t"+name+"\t"+d0+"\t"+d1)
 	case EventTypeIndexBlobMismatch:
-		fmt.Fprintln(h.tw, "Idx\t-\t?\t?")
+		fmt.Fprintln(h.tw, "Idx\t"+name+"\t"+d0+"\t"+d1)
 	case EventTypeManifestBlobMismatch:
-		fmt.Fprintln(h.tw, "Mani\t-\t?\t?")
+		fmt.Fprintln(h.tw, "Mani\t"+name+"\t"+d0+"\t"+d1)
 	case EventTypeConfigBlobMismatch:
-		fmt.Fprintln(h.tw, "Cfg\t-\t?\t?")
+		fmt.Fprintln(h.tw, "Cfg\t"+name+"\t"+d0+"\t"+d1)
 	case EventTypeLayerBlobMismatch:
-		fmt.Fprintln(h.tw, "Layer\t-\t?\t?")
+		fmt.Fprintln(h.tw, "Layer\t"+name+"\t"+d0+"\t"+d1)
 	case EventTypeTarEntryMismatch:
-		ent0, ent1 := in0.TarEntry, in1.TarEntry
-		hdr0, hdr1 := ent0.Header, ent1.Header
+		name := "?"
 		d0, d1 := "?", "?"
-		if hdr0.Name != hdr1.Name {
-			d0, d1 = hdr0.Name, hdr1.Name
-		} else if ent0.Digest != ent1.Digest {
-			d0, d1 = ent0.Digest.String(), ent1.Digest.String()
-			d0, d1 = strings.TrimPrefix(d0, "sha256:"), strings.TrimPrefix(d1, "sha256:")
-		} else if !hdr0.ModTime.Equal(hdr1.ModTime) {
-			d0, d1 = hdr0.ModTime.String(), hdr1.ModTime.String()
+		ent0, ent1 := in0.TarEntry, in1.TarEntry
+		if ent0 == nil {
+			d0 = "missing"
+		} else {
+			name = ent0.Header.Name
 		}
-		fmt.Fprintf(h.tw, "File\t%s\t%s\t%s\n", hdr0.Name, d0, d1)
+		if ent1 == nil {
+			d1 = "missing"
+		} else if ent0 == nil {
+			name = ent1.Header.Name
+		}
+		if ent0 != nil && ent1 != nil {
+			hdr0, hdr1 := ent0.Header, ent1.Header
+			if hdr0.Name != hdr1.Name {
+				d0, d1 = hdr0.Name, hdr1.Name
+			} else if hdr0.Linkname != hdr1.Linkname {
+				d0, d1 = "Linkname "+hdr0.Linkname, "Linkname "+hdr1.Linkname
+			} else if hdr0.Mode != hdr1.Mode {
+				d0, d1 = fmt.Sprintf("Mode 0x%0x", hdr0.Mode), fmt.Sprintf("Mode 0x%0x", hdr1.Mode)
+			} else if hdr0.Uid != hdr1.Uid {
+				d0, d1 = fmt.Sprintf("Uid %d", hdr0.Uid), fmt.Sprintf("Uid %d", hdr1.Uid)
+			} else if hdr0.Gid != hdr1.Gid {
+				d0, d1 = fmt.Sprintf("Gid %d", hdr0.Gid), fmt.Sprintf("Gid %d", hdr1.Gid)
+			} else if hdr0.Uname != hdr1.Uname {
+				d0, d1 = "Uname "+hdr0.Uname, "Uname "+hdr1.Uname
+			} else if hdr0.Gname != hdr1.Gname {
+				d0, d1 = "Gname "+hdr0.Gname, "Gname "+hdr1.Gname
+			} else if hdr0.Devmajor != hdr1.Devmajor || hdr0.Devminor != hdr1.Devminor {
+				d0, d1 = fmt.Sprintf("Dev %d:%d", hdr0.Devmajor, hdr0.Devminor), fmt.Sprintf("Dev %d:%d", hdr1.Devmajor, hdr1.Devminor)
+			} else if ent0.Digest != ent1.Digest {
+				d0, d1 = ent0.Digest.String(), ent1.Digest.String()
+				d0, d1 = strings.TrimPrefix(d0, "sha256:"), strings.TrimPrefix(d1, "sha256:")
+			} else if !hdr0.ModTime.Equal(hdr1.ModTime) {
+				d0, d1 = hdr0.ModTime.String(), hdr1.ModTime.String()
+			} else if !hdr0.AccessTime.Equal(hdr1.AccessTime) {
+				d0, d1 = "Atime "+hdr0.AccessTime.String(), "Atime "+hdr1.AccessTime.String()
+			} else if !hdr0.ChangeTime.Equal(hdr1.ChangeTime) {
+				d0, d1 = "Ctime "+hdr0.ChangeTime.String(), "Ctime "+hdr1.ChangeTime.String()
+			}
+			// TODO: Xattrs
+		}
+		fmt.Fprintln(h.tw, "File\t"+name+"\t"+d0+"\t"+d1)
 	default:
 		log.G(ctx).Warnf("Unknown event: " + node.Event.String())
 	}
