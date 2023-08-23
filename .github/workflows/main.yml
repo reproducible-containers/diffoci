@@ -19,3 +19,11 @@ jobs:
         with:
           version: v1.54.2
           args: --verbose
+      - run: go install ./cmd/diffoci
+      - name: smoke test
+        run: |
+          set -x pipefail
+          diffoci diff --semantic --report-dir=~/tmp/diff alpine:3.18.2 alpine:3.18.3 | tee stdout
+          set +o pipefail
+          grep "File    etc/os-release                       fb844374742438cf1b4e675dcd7d87c2fd6fbdb7cc7be30c62d4027240474aaf    e08e943282c5d38f99bfde311c7d5759a4578f92fca5943e5b1351e8cd472892" stdout
+          find ~/tmp/diff
