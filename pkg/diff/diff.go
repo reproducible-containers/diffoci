@@ -31,10 +31,11 @@ import (
 )
 
 type IgnoranceOptions struct {
-	IgnoreTimestamps bool
-	IgnoreHistory    bool
-	IgnoreFileOrder  bool
-	IgnoreImageName  bool
+	IgnoreTimestamps            bool
+	IgnoreHistory               bool
+	IgnoreFileOrder             bool
+	IgnoreFileModeRedundantBits bool
+	IgnoreImageName             bool
 }
 
 type Options struct {
@@ -773,6 +774,12 @@ func (d *differ) diffTarEntry(ctx context.Context, node *EventTreeNode, in [2]Ev
 		// cmpopts.IgnoreFields cannot be used for int
 		ent0.Index = -1
 		ent1.Index = -1
+	}
+	if d.o.IgnoreFileModeRedundantBits {
+		// Ignore 0x4000 (directory), 0x8000 (regular), etc.
+		// BuildKit sets these redundant bits. The legacy builder does not.
+		ent0.Header.Mode &= 0x0FFF
+		ent1.Header.Mode &= 0x0FFF
 	}
 	var errs []error
 	if diff := cmp.Diff(ent0, ent1, cmpOpts...); diff != "" {
