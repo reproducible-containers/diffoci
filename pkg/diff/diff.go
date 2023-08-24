@@ -31,10 +31,11 @@ import (
 )
 
 type IgnoranceOptions struct {
-	IgnoreTimestamps bool
-	IgnoreHistory    bool
-	IgnoreFileOrder  bool
-	IgnoreImageName  bool
+	IgnoreTimestamps            bool
+	IgnoreHistory               bool
+	IgnoreFileOrder             bool
+	IgnoreFileModeRedundantBits bool
+	IgnoreImageName             bool
 }
 
 type Options struct {
@@ -154,6 +155,23 @@ func (d *differ) raiseEventWithEventTreeNode(ctx context.Context, node, newNode 
 	return eventErr
 }
 
+func manifestDesc(ctx context.Context, cs content.Provider, indexDesc ocispec.Descriptor, platMC platforms.MatchComparer) (*ocispec.Descriptor, error) {
+	p, err := content.ReadBlob(ctx, cs, indexDesc)
+	if err != nil {
+		return nil, err
+	}
+	var idx ocispec.Index
+	if err := json.Unmarshal(p, &idx); err != nil {
+		return nil, err
+	}
+	for _, mani := range idx.Manifests {
+		if mani.Platform == nil || platMC.Match(*mani.Platform) {
+			return &mani, nil
+		}
+	}
+	return nil, errdefs.ErrNotFound
+}
+
 func (d *differ) diff(ctx context.Context, node *EventTreeNode, in [2]EventInput) error {
 	var errs []error
 	negligibleFields := []string{"Annotations"}
@@ -183,12 +201,48 @@ func (d *differ) diff(ctx context.Context, node *EventTreeNode, in [2]EventInput
 	}
 	switch mt := in[0].Descriptor.MediaType; {
 	case images.IsIndexType(mt):
-		if err := d.diffIndex(ctx, node, in); err != nil {
-			errs = append(errs, err)
+		if images.IsManifestType(in[1].Descriptor.MediaType) {
+			log.G(ctx).Warn("Comparing multi-platform image vs single-platform image (EXPERIMENTAL)")
+			mani0Desc, err := manifestDesc(ctx, d.cs, *in[0].Descriptor, d.platMC)
+			if err != nil {
+				return err
+			}
+			newNode := EventTreeNode{
+				Context: path.Join(node.Context, "manifest"),
+				Event: Event{
+					Type:   EventTypeManifestBlobMismatch,
+					Inputs: in,
+					Diff:   cmp.Diff(*in[0].Descriptor, *in[1].Descriptor),
+					Note:   "index vs manifest",
+				},
+			}
+			childInputs := [2]EventInput{
+				{
+					Descriptor: mani0Desc,
+				}, {
+					Descriptor: in[1].Descriptor,
+				},
+			}
+			if diffErr := d.diff(ctx, &newNode, childInputs); diffErr != nil {
+				errs = append(errs, err)
+			}
+			if len(newNode.Children) > 0 {
+				if err := d.raiseEventWithEventTreeNode(ctx, node, &newNode); err != nil {
+					errs = append(errs, err)
+				}
+			} // else no event happens
+		} else {
+			if err := d.diffIndex(ctx, node, in); err != nil {
+				errs = append(errs, err)
+			}
 		}
 	case images.IsManifestType(mt):
-		if err := d.diffManifest(ctx, node, in); err != nil {
-			errs = append(errs, err)
+		if images.IsIndexType(in[1].Descriptor.MediaType) {
+			errs = append(errs, errors.New("comparing single-platform image vs multi-platform image is not supported (Hint: swap input 0 and 1)"))
+		} else {
+			if err := d.diffManifest(ctx, node, in); err != nil {
+				errs = append(errs, err)
+			}
 		}
 	case images.IsConfigType(mt):
 		if err := d.diffConfig(ctx, node, in); err != nil {
@@ -261,8 +315,8 @@ func (d *differ) diffDescriptorSliceField(ctx context.Context, node *EventTreeNo
 		ev := Event{
 			Type:   evType,
 			Inputs: in,
-			Diff:   cmp.Diff(descSlices, descSlices),
-			Note:   fmt.Sprintf("field %q: length mismatch", fieldName),
+			Diff:   cmp.Diff(descSlices[0], descSlices[1]),
+			Note:   fmt.Sprintf("field %q: length mismatch (%d vs %d)", fieldName, len(descSlices[0]), len(descSlices[1])),
 		}
 		return d.raiseEvent(ctx, node, ev, strings.ToLower(fieldName))
 	}
@@ -279,7 +333,7 @@ func (d *differ) diffDescriptorSliceField(ctx context.Context, node *EventTreeNo
 			Event: Event{
 				Type:   evType,
 				Inputs: in,
-				Diff:   cmp.Diff(descSlices[0], descSlices[1]),
+				Diff:   cmp.Diff(descSlices[0][i], descSlices[1][i]),
 				Note:   fmt.Sprintf("field %q", fieldNameI),
 			},
 		}
@@ -316,6 +370,13 @@ func (d *differ) diffAnnotationsField(ctx context.Context, node *EventTreeNode, 
 	if d.o.IgnoreImageName {
 		negligible[images.AnnotationImageName] = struct{}{} // "io.containerd.image.name": "docker.io/library/alpine:3.18"
 		negligible[ocispec.AnnotationRefName] = struct{}{}  // "org.opencontainers.image.ref.name": "3.18"
+	}
+	if len(negligible) > 0 {
+		for i := 0; i < 2; i++ {
+			if maps[i] == nil {
+				maps[i] = make(map[string]string)
+			}
+		}
 	}
 	discardFunc := func(k, _ string) bool {
 		_, ok := negligible[k]
@@ -433,17 +494,24 @@ func (d *differ) diffManifest(ctx context.Context, node *EventTreeNode, in [2]Ev
 	}
 
 	// Compare Layers
-	if err := d.diffDescriptorSliceField(ctx, node, in, EventTypeManifestBlobMismatch, [2][]ocispec.Descriptor{
-		in[0].Manifest.Layers,
-		in[1].Manifest.Layers,
-	}, "Layers", maxLayers,
-		func(desc ocispec.Descriptor) (tolerable bool, vErr error) {
-			if !images.IsLayerType(desc.MediaType) {
-				return false, fmt.Errorf("expected a layer type, got %q", desc.MediaType)
-			}
-			return true, nil
-		}); err != nil {
-		errs = append(errs, err)
+	if len(in[0].Manifest.Layers) == len(in[1].Manifest.Layers) {
+		if err := d.diffDescriptorSliceField(ctx, node, in, EventTypeManifestBlobMismatch, [2][]ocispec.Descriptor{
+			in[0].Manifest.Layers,
+			in[1].Manifest.Layers,
+		}, "Layers", maxLayers,
+			func(desc ocispec.Descriptor) (tolerable bool, vErr error) {
+				if !images.IsLayerType(desc.MediaType) {
+					return false, fmt.Errorf("expected a layer type, got %q", desc.MediaType)
+				}
+				return true, nil
+			}); err != nil {
+			errs = append(errs, err)
+		}
+	} else {
+		log.G(ctx).Warningf("Layer length mismatch (%d vs %d), squashing for comparison (EXPERIMENTAL)", len(in[0].Manifest.Layers), len(in[1].Manifest.Layers))
+		if err := d.diffLayersWithSquashing(ctx, node, in); err != nil {
+			errs = append(errs, err)
+		}
 	}
 
 	// Compare Subject
@@ -548,6 +616,29 @@ func (d *differ) diffConfig(ctx context.Context, node *EventTreeNode, in [2]Even
 	return errors.Join(errs...)
 }
 
+func (d *differ) diffLayersWithSquashing(ctx context.Context, node *EventTreeNode, in [2]EventInput) error {
+	tr0, trCloser0, err := openTarReaderWithSquashing(ctx, d.cs, in[0].Manifest.Layers)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if trCloserErr0 := trCloser0(); trCloserErr0 != nil {
+			log.G(ctx).WithError(trCloserErr0).Warn("failed to close tar reader 0")
+		}
+	}()
+
+	tr1, trCloser1, err := openTarReaderWithSquashing(ctx, d.cs, in[1].Manifest.Layers)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if trCloserErr1 := trCloser1(); trCloserErr1 != nil {
+			log.G(ctx).WithError(trCloserErr1).Warn("failed to close tar reader 1")
+		}
+	}()
+	return d.diffLayerWithTarReader(ctx, node, in, tr0, tr1)
+}
+
 func (d *differ) diffLayer(ctx context.Context, node *EventTreeNode, in [2]EventInput) error {
 	tr0, trCloser0, err := openTarReader(ctx, d.cs, *in[0].Descriptor)
 	if err != nil {
@@ -568,106 +659,93 @@ func (d *differ) diffLayer(ctx context.Context, node *EventTreeNode, in [2]Event
 			log.G(ctx).WithError(trCloserErr1).Warn("failed to close tar reader 1")
 		}
 	}()
+	return d.diffLayerWithTarReader(ctx, node, in, tr0, tr1)
+}
 
-	var (
-		tarEntries0 []*TarEntry
-		tarEntries1 []*TarEntry
-		errs        []error
-	)
-	tarEntriesByName0 := make(map[string][]*TarEntry)
-	tarEntriesByName1 := make(map[string][]*TarEntry)
-	var finalizers []func() error
+// tarReader is implemented by *tar.Reader .
+type tarReader interface {
+	io.Reader
+	Next() (*tar.Header, error)
+}
+
+type loadLayerResult struct {
+	entries       int
+	entriesByName map[string][]*TarEntry
+	finalizers    []func() error
+}
+
+func (d *differ) loadLayer(ctx context.Context, node *EventTreeNode, inputIdx int, tr tarReader) (*loadLayerResult, error) {
+	res := &loadLayerResult{
+		entriesByName: make(map[string][]*TarEntry),
+		finalizers:    nil,
+	}
+	for i := 0; ; i++ {
+		hdr, err := tr.Next()
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		res.entries++
+		ent := &TarEntry{
+			Index:  i,
+			Header: hdr,
+		}
+		if repDir := d.o.ReportDir; repDir != "" {
+			dirx := filepath.Clean(node.Context) // "/manifests-0/layers-0"
+			dir := filepath.Join(repDir, ReportDirInput0, dirx)
+			switch inputIdx {
+			case 0: // NOP
+			case 1:
+				dir = filepath.Join(repDir, ReportDirInput1, dirx)
+			default:
+				return res, fmt.Errorf("invalid input index %d", inputIdx)
+			}
+			ut, err := untar.Entry(ctx, dir, hdr, tr)
+			if err != nil {
+				return res, err
+			}
+			ent.Digest = ut.Digest
+			ent.extractedPath = ut.Path
+			if ut.Finalizer != nil {
+				res.finalizers = append(res.finalizers, ut.Finalizer)
+			}
+		} else {
+			ent.Digest, err = digest.SHA256.FromReader(tr)
+			if err != nil {
+				return res, err
+			}
+		}
+		res.entriesByName[hdr.Name] = append(res.entriesByName[hdr.Name], ent)
+	}
+
+	return res, nil
+}
+
+func (d *differ) diffLayerWithTarReader(ctx context.Context, node *EventTreeNode, in [2]EventInput, tr0, tr1 tarReader) error {
+	l0, err := d.loadLayer(ctx, node, 0, tr0)
+	if err != nil {
+		return errors.New("failed to load layer (input-0)")
+	}
+	l1, err := d.loadLayer(ctx, node, 1, tr1)
+	if err != nil {
+		return errors.New("failed to load layer (input-1)")
+	}
 	defer func() {
-		for _, finalizer := range finalizers {
+		for _, finalizer := range append(l0.finalizers, l1.finalizers...) {
 			if finalizerErr := finalizer(); finalizerErr != nil {
 				log.G(ctx).WithError(finalizerErr).Debug("Failed to execute a layer finalizer")
 			}
 		}
 	}()
-	for i := 0; ; i++ {
-		hdr0, hdrErr0 := tr0.Next()
-		hdr1, hdrErr1 := tr1.Next()
-		if errors.Is(hdrErr0, io.EOF) && errors.Is(hdrErr1, io.EOF) {
-			break
+	var errs []error
+	if l0.entries != l1.entries {
+		ev := Event{
+			Type:   EventTypeLayerBlobMismatch,
+			Inputs: in,
+			Note:   fmt.Sprintf("length mismatch (%d vs %d)", l0.entries, l1.entries),
 		}
-		if errors.Is(hdrErr0, io.EOF) && !errors.Is(hdrErr1, io.EOF) {
-			ev := Event{
-				Type:   EventTypeLayerBlobMismatch,
-				Inputs: in,
-				Note:   fmt.Sprintf("input 1 is longer than input 0 (%d entries)", i+1),
-			}
-			if err := d.raiseEvent(ctx, node, ev, "layer"); err != nil {
-				errs = append(errs, err)
-			}
-			break
+		if err := d.raiseEvent(ctx, node, ev, "layer"); err != nil {
+			errs = append(errs, err)
 		}
-		if errors.Is(hdrErr1, io.EOF) && !errors.Is(hdrErr0, io.EOF) {
-			ev := Event{
-				Type:   EventTypeLayerBlobMismatch,
-				Inputs: in,
-				Note:   fmt.Sprintf("input 0 is longer than input 1 (%d entries)", i+1),
-			}
-			if err := d.raiseEvent(ctx, node, ev, "layer"); err != nil {
-				errs = append(errs, err)
-			}
-			break
-		}
-		if hdrErr0 != nil {
-			errs = append(errs, hdrErr0)
-			break
-		}
-		if hdrErr1 != nil {
-			errs = append(errs, hdrErr1)
-			break
-		}
-		var (
-			dgst           [2]digest.Digest
-			extractedPaths [2]string
-		)
-		if repDir := d.o.ReportDir; repDir != "" {
-			dirx := filepath.Clean(node.Context) // "/manifests-0/layers-0"
-			dir0 := filepath.Join(repDir, ReportDirInput0, dirx)
-			dir1 := filepath.Join(repDir, ReportDirInput1, dirx)
-			untar0, err := untar.Entry(ctx, dir0, hdr0, tr0)
-			if err != nil {
-				errs = append(errs, err)
-				break
-			}
-			untar1, err := untar.Entry(ctx, dir1, hdr1, tr1)
-			if err != nil {
-				errs = append(errs, err)
-				break
-			}
-			dgst[0], dgst[1] = untar0.Digest, untar1.Digest
-			extractedPaths[0], extractedPaths[1] = untar0.Path, untar1.Path
-		} else {
-			dgst[0], err = digest.SHA256.FromReader(tr0)
-			if err != nil {
-				errs = append(errs, err)
-				break
-			}
-			dgst[1], err = digest.SHA256.FromReader(tr1)
-			if err != nil {
-				errs = append(errs, err)
-				break
-			}
-		}
-		ent0 := &TarEntry{
-			Index:         i,
-			Header:        hdr0,
-			Digest:        dgst[0],
-			extractedPath: extractedPaths[0],
-		}
-		ent1 := &TarEntry{
-			Index:         i,
-			Header:        hdr1,
-			Digest:        dgst[1],
-			extractedPath: extractedPaths[1],
-		}
-		tarEntries0 = append(tarEntries0, ent0)
-		tarEntriesByName0[hdr0.Name] = append(tarEntriesByName0[hdr0.Name], ent0)
-		tarEntries1 = append(tarEntries1, ent1)
-		tarEntriesByName1[hdr1.Name] = append(tarEntriesByName1[hdr1.Name], ent1)
 	}
 	newNode := EventTreeNode{
 		Context: path.Join(node.Context, "layer"),
@@ -677,48 +755,39 @@ func (d *differ) diffLayer(ctx context.Context, node *EventTreeNode, in [2]Event
 		},
 	}
 	var dirsToBeRemovedIfEmpty []string
-	if d.o.IgnoreFileOrder {
-		for name, ents0 := range tarEntriesByName0 {
-			ents1 := tarEntriesByName1[name]
-			if len(ents0) != len(ents1) {
-				ev := Event{
-					Type:   EventTypeLayerBlobMismatch,
-					Inputs: in,
-					Note:   eventNoteNameAppearanceMismatch(name, len(ents0), len(ents1)),
-				}
-				if err := d.raiseEvent(ctx, node /* not NewNode */, ev, "layer"); err != nil {
-					errs = append(errs, err)
-				}
-				continue
+	for name, ents0 := range l0.entriesByName {
+		ents1 := l1.entriesByName[name]
+		if len(ents0) != len(ents1) {
+			ev := Event{
+				Type:   EventTypeLayerBlobMismatch,
+				Inputs: in,
+				Note:   eventNoteNameAppearanceMismatch(name, len(ents0), len(ents1)),
 			}
-			dd, err := d.diffTarEntries(ctx, &newNode, in, [2][]*TarEntry{ents0, ents1})
-			dirsToBeRemovedIfEmpty = append(dirsToBeRemovedIfEmpty, dd...)
-			if err != nil {
+			if err := d.raiseEvent(ctx, node /* not NewNode */, ev, "layer"); err != nil {
 				errs = append(errs, err)
 			}
+			continue
 		}
-		// Iterate again to find entries that only appear in input 1
-		for name, ents1 := range tarEntriesByName1 {
-			ents0 := tarEntriesByName0[name]
-			if len(ents0) != len(ents1) {
-				ev := Event{
-					Type:   EventTypeLayerBlobMismatch,
-					Inputs: in,
-					Note:   eventNoteNameAppearanceMismatch(name, len(ents0), len(ents1)),
-				}
-				if err := d.raiseEvent(ctx, node /* not newNode */, ev, "layer"); err != nil {
-					errs = append(errs, err)
-				}
-			}
-		}
-	} else {
-		dd, err := d.diffTarEntries(ctx, &newNode, in, [2][]*TarEntry{tarEntries0, tarEntries1})
+		dd, err := d.diffTarEntries(ctx, &newNode, in, [2][]*TarEntry{ents0, ents1})
 		dirsToBeRemovedIfEmpty = append(dirsToBeRemovedIfEmpty, dd...)
 		if err != nil {
 			errs = append(errs, err)
 		}
 	}
-
+	// Iterate again to find entries that only appear in input 1
+	for name, ents1 := range l1.entriesByName {
+		ents0 := l0.entriesByName[name]
+		if len(ents0) != len(ents1) {
+			ev := Event{
+				Type:   EventTypeLayerBlobMismatch,
+				Inputs: in,
+				Note:   eventNoteNameAppearanceMismatch(name, len(ents0), len(ents1)),
+			}
+			if err := d.raiseEvent(ctx, node /* not newNode */, ev, "layer"); err != nil {
+				errs = append(errs, err)
+			}
+		}
+	}
 	sort.Sort(sort.Reverse(sort.StringSlice(dirsToBeRemovedIfEmpty)))
 	for _, d := range dirsToBeRemovedIfEmpty {
 		_ = os.Remove(d) // Not RemoveAll
@@ -774,6 +843,12 @@ func (d *differ) diffTarEntry(ctx context.Context, node *EventTreeNode, in [2]Ev
 		ent0.Index = -1
 		ent1.Index = -1
 	}
+	if d.o.IgnoreFileModeRedundantBits {
+		// Ignore 0x4000 (directory), 0x8000 (regular), etc.
+		// BuildKit sets these redundant bits. The legacy builder does not.
+		ent0.Header.Mode &= 0x0FFF
+		ent1.Header.Mode &= 0x0FFF
+	}
 	var errs []error
 	if diff := cmp.Diff(ent0, ent1, cmpOpts...); diff != "" {
 		ev := Event{
@@ -807,7 +882,7 @@ func (d *differ) diffTarEntry(ctx context.Context, node *EventTreeNode, in [2]Ev
 	return dirsToBeRemovedIfEmpty, errors.Join(errs...)
 }
 
-func openTarReader(ctx context.Context, cs content.Provider, desc ocispec.Descriptor) (tr *tar.Reader, closer func() error, err error) {
+func openTarReader(ctx context.Context, cs content.Provider, desc ocispec.Descriptor) (tr tarReader, closer func() error, err error) {
 	if desc.Size > int64(maxTarBlobSize) {
 		return nil, nil, fmt.Errorf("too large tar blob (%d > %d bytes)", desc.Size, int64(maxTarBlobSize))
 	}
@@ -823,6 +898,55 @@ func openTarReader(ctx context.Context, cs content.Provider, desc ocispec.Descri
 	}
 	lr := io.LimitReader(dr, maxTarStreamSize)
 	return tar.NewReader(lr), ra.Close, nil
+}
+
+func openTarReaderWithSquashing(ctx context.Context, cs content.Provider, descs []ocispec.Descriptor) (tr tarReader, closer func() error, err error) {
+	tarReaders := make([]tarReader, len(descs))
+	closers := make([]func() error, len(descs))
+	for i := 0; i < len(descs); i++ {
+		var err error
+		tarReaders[i], closers[i], err = openTarReader(ctx, cs, descs[i])
+		if err != nil {
+			return nil, nil, err
+		}
+	}
+	tr = newSquashedTarReader(tarReaders)
+	closer = func() error {
+		var errs []error
+		for _, f := range closers {
+			if err := f(); err != nil {
+				errs = append(errs, err)
+			}
+		}
+		return errors.Join(errs...)
+	}
+	return tr, closer, nil
+}
+
+func newSquashedTarReader(tarReaders []tarReader) tarReader {
+	return &squashedTarReader{
+		tarReaders: tarReaders,
+		current:    0,
+	}
+}
+
+type squashedTarReader struct {
+	tarReaders []tarReader
+	current    int
+}
+
+func (r *squashedTarReader) Read(p []byte) (int, error) {
+	return r.tarReaders[r.current].Read(p)
+}
+
+func (r *squashedTarReader) Next() (*tar.Header, error) {
+begin:
+	hdr, err := r.tarReaders[r.current].Next()
+	if errors.Is(err, io.EOF) && r.current < len(r.tarReaders)-1 {
+		r.current++
+		goto begin
+	}
+	return hdr, err
 }
 
 func readBlobWithType[T interface {
@@ -944,39 +1068,79 @@ func (h *defaultEventHandler) HandleEventTreeNode(ctx context.Context, node *Eve
 		fmt.Fprintln(h.tw, "TYPE\tNAME\tINPUT-0\tINPUT-1")
 	})
 	in0, in1 := ev.Inputs[0], ev.Inputs[1]
+	d0, d1 := "?", "?"
+	if ev.Note != "" {
+		d0, d1 = ev.Note, ""
+	}
+	name := "-"
+	if node.Context != "" {
+		name = "ctx:" + node.Context
+	}
 	// TODO: colorize
 	switch ev.Type {
 	case EventTypeDescriptorMismatch:
 		desc0, desc1 := in0.Descriptor, in1.Descriptor
-		d0, d1 := "?", "?"
+		name = desc0.MediaType
 		if desc0.MediaType != desc1.MediaType {
 			d0, d1 = desc0.MediaType, desc1.MediaType
 		} else if desc0.Digest != desc1.Digest {
 			d0, d1 = desc0.Digest.String(), desc1.Digest.String()
 			d0, d1 = strings.TrimPrefix(d0, "sha256:"), strings.TrimPrefix(d1, "sha256:")
 		}
-		fmt.Fprintf(h.tw, "Desc\t%s\t%s\t%s\n", desc0.MediaType, d0, d1)
+		fmt.Fprintln(h.tw, "Desc\t"+name+"\t"+d0+"\t"+d1)
 	case EventTypeIndexBlobMismatch:
-		fmt.Fprintln(h.tw, "Idx\t-\t?\t?")
+		fmt.Fprintln(h.tw, "Idx\t"+name+"\t"+d0+"\t"+d1)
 	case EventTypeManifestBlobMismatch:
-		fmt.Fprintln(h.tw, "Mani\t-\t?\t?")
+		fmt.Fprintln(h.tw, "Mani\t"+name+"\t"+d0+"\t"+d1)
 	case EventTypeConfigBlobMismatch:
-		fmt.Fprintln(h.tw, "Cfg\t-\t?\t?")
+		fmt.Fprintln(h.tw, "Cfg\t"+name+"\t"+d0+"\t"+d1)
 	case EventTypeLayerBlobMismatch:
-		fmt.Fprintln(h.tw, "Layer\t-\t?\t?")
+		fmt.Fprintln(h.tw, "Layer\t"+name+"\t"+d0+"\t"+d1)
 	case EventTypeTarEntryMismatch:
-		ent0, ent1 := in0.TarEntry, in1.TarEntry
-		hdr0, hdr1 := ent0.Header, ent1.Header
+		name := "?"
 		d0, d1 := "?", "?"
-		if hdr0.Name != hdr1.Name {
-			d0, d1 = hdr0.Name, hdr1.Name
-		} else if ent0.Digest != ent1.Digest {
-			d0, d1 = ent0.Digest.String(), ent1.Digest.String()
-			d0, d1 = strings.TrimPrefix(d0, "sha256:"), strings.TrimPrefix(d1, "sha256:")
-		} else if !hdr0.ModTime.Equal(hdr1.ModTime) {
-			d0, d1 = hdr0.ModTime.String(), hdr1.ModTime.String()
+		ent0, ent1 := in0.TarEntry, in1.TarEntry
+		if ent0 == nil {
+			d0 = "missing"
+		} else {
+			name = ent0.Header.Name
 		}
-		fmt.Fprintf(h.tw, "File\t%s\t%s\t%s\n", hdr0.Name, d0, d1)
+		if ent1 == nil {
+			d1 = "missing"
+		} else if ent0 == nil {
+			name = ent1.Header.Name
+		}
+		if ent0 != nil && ent1 != nil {
+			hdr0, hdr1 := ent0.Header, ent1.Header
+			if hdr0.Name != hdr1.Name {
+				d0, d1 = hdr0.Name, hdr1.Name
+			} else if hdr0.Linkname != hdr1.Linkname {
+				d0, d1 = "Linkname "+hdr0.Linkname, "Linkname "+hdr1.Linkname
+			} else if hdr0.Mode != hdr1.Mode {
+				d0, d1 = fmt.Sprintf("Mode 0x%0x", hdr0.Mode), fmt.Sprintf("Mode 0x%0x", hdr1.Mode)
+			} else if hdr0.Uid != hdr1.Uid {
+				d0, d1 = fmt.Sprintf("Uid %d", hdr0.Uid), fmt.Sprintf("Uid %d", hdr1.Uid)
+			} else if hdr0.Gid != hdr1.Gid {
+				d0, d1 = fmt.Sprintf("Gid %d", hdr0.Gid), fmt.Sprintf("Gid %d", hdr1.Gid)
+			} else if hdr0.Uname != hdr1.Uname {
+				d0, d1 = "Uname "+hdr0.Uname, "Uname "+hdr1.Uname
+			} else if hdr0.Gname != hdr1.Gname {
+				d0, d1 = "Gname "+hdr0.Gname, "Gname "+hdr1.Gname
+			} else if hdr0.Devmajor != hdr1.Devmajor || hdr0.Devminor != hdr1.Devminor {
+				d0, d1 = fmt.Sprintf("Dev %d:%d", hdr0.Devmajor, hdr0.Devminor), fmt.Sprintf("Dev %d:%d", hdr1.Devmajor, hdr1.Devminor)
+			} else if ent0.Digest != ent1.Digest {
+				d0, d1 = ent0.Digest.String(), ent1.Digest.String()
+				d0, d1 = strings.TrimPrefix(d0, "sha256:"), strings.TrimPrefix(d1, "sha256:")
+			} else if !hdr0.ModTime.Equal(hdr1.ModTime) {
+				d0, d1 = hdr0.ModTime.String(), hdr1.ModTime.String()
+			} else if !hdr0.AccessTime.Equal(hdr1.AccessTime) {
+				d0, d1 = "Atime "+hdr0.AccessTime.String(), "Atime "+hdr1.AccessTime.String()
+			} else if !hdr0.ChangeTime.Equal(hdr1.ChangeTime) {
+				d0, d1 = "Ctime "+hdr0.ChangeTime.String(), "Ctime "+hdr1.ChangeTime.String()
+			}
+			// TODO: Xattrs
+		}
+		fmt.Fprintln(h.tw, "File\t"+name+"\t"+d0+"\t"+d1)
 	default:
 		log.G(ctx).Warnf("Unknown event: " + node.Event.String())
 	}

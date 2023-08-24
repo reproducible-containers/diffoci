@@ -110,3 +110,129 @@ See the `docker://` example above, and read `docker` as `podman`.
 
 ### Accessing private images
 To access private images, create a credential file as `~/.docker/config.json` using `docker login`.
+
+
+- - -
+# Examples
+## Non-reproducible Docker Hub images
+
+### `golang:1.21-alpine3.18`
+The sources of the official Docker Hub images are available at <https://github.com/docker-library>.
+
+For example, the source of [`golang:1.21-alpine3.18`](https://hub.docker.com/layers/library/golang/1.21-alpine3.18/images/sha256-dd8888bb7f1b0b05e1e625aa29483f50f38a9b64073a4db00b04076cec52b71c?context=explore)
+can be found at <https://github.com/docker-library/golang/blob/d1ff31b86b23fe721dc65806cd2bd79a4c71b039/1.21/alpine3.18/Dockerfile>.
+
+The source can be built as follows:
+
+```console
+$ DOCKER_BUILDKIT=0 docker build -t my-golang-1.21-alpine3.18 'https://github.com/docker-library/golang.git#d1ff31b86b23fe721dc65806cd2bd79a4c71b039:1.21/alpine3.18'
+...
+Successfully tagged my-golang-1.21-alpine3.18:latest
+```
+
+> **Note**
+>
+> `DOCKER_BUILDKIT=0` is specified here because the official `golang:1.21-alpine3.18` image is currently built with the legacy builder.
+> A future revision of the official image may be built with BuildKit, and in such a case, `DOCKER_BUILDKIT=1` will rather need to be specified here.
+
+The resulting image binary (`my-golang-1.21-alpine3.18`) can be compared with the official image binary (`golang:1.21-alpine3.18`) as follows:
+
+```console
+$ diffoci diff docker://golang:1.21-alpine3.18 docker://my-golang-1.21-alpine3.18 --semantic --report-dir=~/diff
+INFO[0000] Loading image "docker.io/library/golang:1.21-alpine3.18" from "docker"
+docker.io/library/golang:1.21 alpine3.18        saved
+Importing       elapsed: 2.6 s  total:   0.0 B  (0.0 B/s)
+INFO[0004] Loading image "docker.io/library/my-golang-1.21-alpine3.18:latest" from "docker"
+docker.io/library/my golang 1.21 alpine3        saved
+Importing       elapsed: 2.6 s  total:   0.0 B  (0.0 B/s)
+TYPE     NAME                      INPUT-0                                                                        INPUT-1
+Layer    ctx:/layers-1/layer       length mismatch (457 vs 454)                                                   
+File     lib/apk/db/scripts.tar    eef110e559acb7aa00ea23ee7b8bddb52c4526cd394749261aa244ef9c6024a4               342eaa013375398497bfc21dff7dd017a647032ec5c486011142c576b7ccc989
+Layer    ctx:/layers-1/layer       name "usr/local/share/ca-certificates/.wh..wh..opq" only appears in input 0    
+Layer    ctx:/layers-1/layer       name "usr/share/ca-certificates/.wh..wh..opq" only appears in input 0          
+Layer    ctx:/layers-1/layer       name "etc/ca-certificates/.wh..wh..opq" only appears in input 0                
+Layer    ctx:/layers-2/layer       length mismatch (13927 vs 13926)                                               
+Layer    ctx:/layers-2/layer       name "usr/local/go/.wh..wh..opq" only appears in input 0                       
+File     lib/apk/db/scripts.tar    073bb5094fc5bba800f06661dc7f1325c5cb4250b13209fb9e3eaf4e60e4bfc4               1369581b62bd60304c59556ea85f585bd498040c8fa223243622bb7990833063
+Layer    ctx:/layers-3/layer       length mismatch (4 vs 3)                                                       
+Layer    ctx:/layers-3/layer       name "go/.wh..wh..opq" only appears in input 0  
+```
+
+> **Note**
+> The `--semantic` flag is specified to ignore differences of timestamps, image names, and other "boring" attributes.
+> Without this flag, the `diffoci` command may print an enourmous amount of output.
+
+In the `my-golang-1.21-alpine3.18` image, special files called ["Opaque whiteouts"](https://github.com/opencontainers/image-spec/blob/v1.0.2/layer.md#whiteouts) (`.wh..wh..opq`)
+are missing due to filesystem difference between Docker Hub's build machine and the local machine.
+
+Also, the `lib/apk/db/scripts.tar` file in the layer 1 is not reproducible due to the timestamps of the tar entries inside it.
+The differences can be inspected by running the [`diffoscope`](https://diffoscope.org/) command for `~/diff/input-{0,1}/layers-1/lib/apk/db/scripts.tar`:
+```console
+$ sudo apt-get install -y diffoscope
+
+$ diffoscope ~/diff/input-0/layers-1/lib/apk/db/scripts.tar ~/diff/input-1/layers-1/lib/apk/db/scripts.tar
+--- /home/suda/diff/input-0/layers-1/lib/apk/db/scripts.tar
++++ /home/suda/diff/input-1/layers-1/lib/apk/db/scripts.tar
+├── file list
+│ @@ -1,9 +1,9 @@
+│ --rwxr-xr-x   0 root         (0) root         (0)       56 2023-08-09 03:36:47.000000 alpine-baselayout-3.4.3-r1.Q1zwvKMnYs1b6ZdPTBJ0Z7D5P3jyA=.pre-install
+│ --rwxr-xr-x   0 root         (0) root         (0)      983 2023-08-09 03:36:47.000000 alpine-baselayout-3.4.3-r1.Q1zwvKMnYs1b6ZdPTBJ0Z7D5P3jyA=.post-install
+│ --rwxr-xr-x   0 root         (0) root         (0)      755 2023-08-09 03:36:47.000000 alpine-baselayout-3.4.3-r1.Q1zwvKMnYs1b6ZdPTBJ0Z7D5P3jyA=.pre-upgrade
+│ --rwxr-xr-x   0 root         (0) root         (0)      983 2023-08-09 03:36:47.000000 alpine-baselayout-3.4.3-r1.Q1zwvKMnYs1b6ZdPTBJ0Z7D5P3jyA=.post-upgrade
+│ --rwxr-xr-x   0 root         (0) root         (0)      139 2023-08-09 03:36:47.000000 busybox-1.36.1-r2.Q1gQ/L3UBnSjgkFWEHQaUkUDubqdI=.post-install
+│ --rwxr-xr-x   0 root         (0) root         (0)     1239 2023-08-09 03:36:47.000000 busybox-1.36.1-r2.Q1gQ/L3UBnSjgkFWEHQaUkUDubqdI=.post-upgrade
+│ --rwxr-xr-x   0 root         (0) root         (0)      546 2023-08-09 03:36:47.000000 busybox-1.36.1-r2.Q1gQ/L3UBnSjgkFWEHQaUkUDubqdI=.trigger
+│ --rwxr-xr-x   0 root         (0) root         (0)      137 2023-08-09 03:36:47.000000 ca-certificates-20230506-r0.Q1FG8M+7w+dkjV9Vy0mGFWW2t4+Do=.post-deinstall
+│ --rwxr-xr-x   0 root         (0) root         (0)       63 2023-08-09 03:36:47.000000 ca-certificates-20230506-r0.Q1FG8M+7w+dkjV9Vy0mGFWW2t4+Do=.trigger
+│ +-rwxr-xr-x   0 root         (0) root         (0)       56 2023-08-24 07:50:41.000000 alpine-baselayout-3.4.3-r1.Q1zwvKMnYs1b6ZdPTBJ0Z7D5P3jyA=.pre-install
+│ +-rwxr-xr-x   0 root         (0) root         (0)      983 2023-08-24 07:50:41.000000 alpine-baselayout-3.4.3-r1.Q1zwvKMnYs1b6ZdPTBJ0Z7D5P3jyA=.post-install
+│ +-rwxr-xr-x   0 root         (0) root         (0)      755 2023-08-24 07:50:41.000000 alpine-baselayout-3.4.3-r1.Q1zwvKMnYs1b6ZdPTBJ0Z7D5P3jyA=.pre-upgrade
+│ +-rwxr-xr-x   0 root         (0) root         (0)      983 2023-08-24 07:50:41.000000 alpine-baselayout-3.4.3-r1.Q1zwvKMnYs1b6ZdPTBJ0Z7D5P3jyA=.post-upgrade
+│ +-rwxr-xr-x   0 root         (0) root         (0)      139 2023-08-24 07:50:41.000000 busybox-1.36.1-r2.Q1gQ/L3UBnSjgkFWEHQaUkUDubqdI=.post-install
+│ +-rwxr-xr-x   0 root         (0) root         (0)     1239 2023-08-24 07:50:41.000000 busybox-1.36.1-r2.Q1gQ/L3UBnSjgkFWEHQaUkUDubqdI=.post-upgrade
+│ +-rwxr-xr-x   0 root         (0) root         (0)      546 2023-08-24 07:50:41.000000 busybox-1.36.1-r2.Q1gQ/L3UBnSjgkFWEHQaUkUDubqdI=.trigger
+│ +-rwxr-xr-x   0 root         (0) root         (0)      137 2023-08-24 07:50:41.000000 ca-certificates-20230506-r0.Q1FG8M+7w+dkjV9Vy0mGFWW2t4+Do=.post-deinstall
+│ +-rwxr-xr-x   0 root         (0) root         (0)       63 2023-08-24 07:50:41.000000 ca-certificates-20230506-r0.Q1FG8M+7w+dkjV9Vy0mGFWW2t4+Do=.trigger
+```
+
+These differences are boring, but not filtered out by the `--semantic` flag of the `diffoci` command, because `diffoci` is not aware of the formats of the files inside the image layers.
+
+The `lib/apk/db/scripts.tar` file in the layer 2 has the same issue:
+<details>
+<p>
+
+```console
+$ diffoscope ~/diff/input-0/layers-2/lib/apk/db/scripts.tar ~/diff/input-1/layers-2/lib/apk/db/scripts.tar
+--- /home/suda/diff/input-0/layers-2/lib/apk/db/scripts.tar
++++ /home/suda/diff/input-1/layers-2/lib/apk/db/scripts.tar
+├── file list
+│ @@ -1,9 +1,9 @@
+│ --rwxr-xr-x   0 root         (0) root         (0)       56 2023-08-09 04:41:27.000000 alpine-baselayout-3.4.3-r1.Q1zwvKMnYs1b6ZdPTBJ0Z7D5P3jyA=.pre-install
+│ --rwxr-xr-x   0 root         (0) root         (0)      983 2023-08-09 04:41:27.000000 alpine-baselayout-3.4.3-r1.Q1zwvKMnYs1b6ZdPTBJ0Z7D5P3jyA=.post-install
+│ --rwxr-xr-x   0 root         (0) root         (0)      755 2023-08-09 04:41:27.000000 alpine-baselayout-3.4.3-r1.Q1zwvKMnYs1b6ZdPTBJ0Z7D5P3jyA=.pre-upgrade
+│ --rwxr-xr-x   0 root         (0) root         (0)      983 2023-08-09 04:41:27.000000 alpine-baselayout-3.4.3-r1.Q1zwvKMnYs1b6ZdPTBJ0Z7D5P3jyA=.post-upgrade
+│ --rwxr-xr-x   0 root         (0) root         (0)      139 2023-08-09 04:41:27.000000 busybox-1.36.1-r2.Q1gQ/L3UBnSjgkFWEHQaUkUDubqdI=.post-install
+│ --rwxr-xr-x   0 root         (0) root         (0)     1239 2023-08-09 04:41:27.000000 busybox-1.36.1-r2.Q1gQ/L3UBnSjgkFWEHQaUkUDubqdI=.post-upgrade
+│ --rwxr-xr-x   0 root         (0) root         (0)      546 2023-08-09 04:41:27.000000 busybox-1.36.1-r2.Q1gQ/L3UBnSjgkFWEHQaUkUDubqdI=.trigger
+│ --rwxr-xr-x   0 root         (0) root         (0)      137 2023-08-09 04:41:27.000000 ca-certificates-20230506-r0.Q1FG8M+7w+dkjV9Vy0mGFWW2t4+Do=.post-deinstall
+│ --rwxr-xr-x   0 root         (0) root         (0)       63 2023-08-09 04:41:27.000000 ca-certificates-20230506-r0.Q1FG8M+7w+dkjV9Vy0mGFWW2t4+Do=.trigger
+│ +-rwxr-xr-x   0 root         (0) root         (0)       56 2023-08-24 07:50:52.000000 alpine-baselayout-3.4.3-r1.Q1zwvKMnYs1b6ZdPTBJ0Z7D5P3jyA=.pre-install
+│ +-rwxr-xr-x   0 root         (0) root         (0)      983 2023-08-24 07:50:52.000000 alpine-baselayout-3.4.3-r1.Q1zwvKMnYs1b6ZdPTBJ0Z7D5P3jyA=.post-install
+│ +-rwxr-xr-x   0 root         (0) root         (0)      755 2023-08-24 07:50:52.000000 alpine-baselayout-3.4.3-r1.Q1zwvKMnYs1b6ZdPTBJ0Z7D5P3jyA=.pre-upgrade
+│ +-rwxr-xr-x   0 root         (0) root         (0)      983 2023-08-24 07:50:52.000000 alpine-baselayout-3.4.3-r1.Q1zwvKMnYs1b6ZdPTBJ0Z7D5P3jyA=.post-upgrade
+│ +-rwxr-xr-x   0 root         (0) root         (0)      139 2023-08-24 07:50:52.000000 busybox-1.36.1-r2.Q1gQ/L3UBnSjgkFWEHQaUkUDubqdI=.post-install
+│ +-rwxr-xr-x   0 root         (0) root         (0)     1239 2023-08-24 07:50:52.000000 busybox-1.36.1-r2.Q1gQ/L3UBnSjgkFWEHQaUkUDubqdI=.post-upgrade
+│ +-rwxr-xr-x   0 root         (0) root         (0)      546 2023-08-24 07:50:52.000000 busybox-1.36.1-r2.Q1gQ/L3UBnSjgkFWEHQaUkUDubqdI=.trigger
+│ +-rwxr-xr-x   0 root         (0) root         (0)      137 2023-08-24 07:50:52.000000 ca-certificates-20230506-r0.Q1FG8M+7w+dkjV9Vy0mGFWW2t4+Do=.post-deinstall
+│ +-rwxr-xr-x   0 root         (0) root         (0)       63 2023-08-24 07:50:52.000000 ca-certificates-20230506-r0.Q1FG8M+7w+dkjV9Vy0mGFWW2t4+Do=.trigger
+```
+
+</p>
+</details>
+
+Depending on the time to build the image, more differences may happen, especially when the Alpine packages on the internet are bumped up.
+
+#### Conclusion
+This example indicates that although the official `golang:1.21-alpine3.18` image binary is not fully reproducible, its non-reproducibility is practically negligible, and
+this image binary can be assured to be certainly built from with the [published source](https://github.com/docker-library/golang/blob/d1ff31b86b23fe721dc65806cd2bd79a4c71b039/1.21/alpine3.18/Dockerfile).
+**If the published source is trustable**, this image binary can be trusted too.

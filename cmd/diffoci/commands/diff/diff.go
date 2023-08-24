@@ -39,6 +39,7 @@ func NewCommand() *cobra.Command {
 					"ignore-timestamps",
 					"ignore-history",
 					"ignore-file-order",
+					"ignore-file-mode-redundant-bits",
 					"ignore-image-name",
 				}
 				for _, f := range flagNames {
@@ -60,6 +61,7 @@ func NewCommand() *cobra.Command {
 	flags.Bool("ignore-timestamps", false, "Ignore timestamps")
 	flags.Bool("ignore-history", false, "Ignore history")
 	flags.Bool("ignore-file-order", false, "Ignore file order in tar layers")
+	flags.Bool("ignore-file-mode-redundant-bits", false, "Ignore redundant bits of file mode")
 	flags.Bool("ignore-image-name", false, "Ignore image name annotation")
 	flags.Bool("semantic", false, "[Recommended] Alias for --ignore-*=true")
 
@@ -93,6 +95,10 @@ func action(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	options.IgnoreFileOrder, err = flags.GetBool("ignore-file-order")
+	if err != nil {
+		return err
+	}
+	options.IgnoreFileModeRedundantBits, err = flags.GetBool("ignore-file-mode-redundant-bits")
 	if err != nil {
 		return err
 	}

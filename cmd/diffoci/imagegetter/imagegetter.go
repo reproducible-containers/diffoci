@@ -137,6 +137,18 @@ func (g *ImageGetter) getPodman(ctx context.Context, rawRef string, plats []ocis
 	return g.loadDocker(ctx, podman, name, plats)
 }
 
+type readerWithEOF struct {
+	io.Reader
+}
+
+func (r *readerWithEOF) Read(p []byte) (int, error) {
+	n, err := r.Reader.Read(p)
+	if errors.Is(err, os.ErrClosed) {
+		err = io.EOF
+	}
+	return n, err
+}
+
 // loadDocker runs `docker save` and loads the result
 func (g *ImageGetter) loadDocker(ctx context.Context, docker, name string, plats []ocispec.Platform) (*images.Image, error) {
 	log.G(ctx).Infof("Loading image %q from %q", name, docker)
@@ -151,7 +163,7 @@ func (g *ImageGetter) loadDocker(ctx context.Context, docker, name string, plats
 	if err = dockerCmd.Start(); err != nil {
 		return nil, fmt.Errorf("failed to run %v: %w", dockerCmd.Args, err)
 	}
-	if err = Load(ctx, g.progressWriter, g.transferrer, r, plats, name); err != nil {
+	if err = Load(ctx, g.progressWriter, g.transferrer, &readerWithEOF{r}, plats, name); err != nil {
 		return nil, fmt.Errorf("failed to load an archive (from %v): %w", dockerCmd.Args, err)
 	}
 	if err = r.Close(); err != nil {
