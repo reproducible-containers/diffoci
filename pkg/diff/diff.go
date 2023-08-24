@@ -318,6 +318,13 @@ func (d *differ) diffAnnotationsField(ctx context.Context, node *EventTreeNode, 
 		negligible[images.AnnotationImageName] = struct{}{} // "io.containerd.image.name": "docker.io/library/alpine:3.18"
 		negligible[ocispec.AnnotationRefName] = struct{}{}  // "org.opencontainers.image.ref.name": "3.18"
 	}
+	if len(negligible) > 0 {
+		for i := 0; i < 2; i++ {
+			if maps[i] == nil {
+				maps[i] = make(map[string]string)
+			}
+		}
+	}
 	discardFunc := func(k, _ string) bool {
 		_, ok := negligible[k]
 		return ok
