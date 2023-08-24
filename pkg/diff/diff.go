@@ -668,107 +668,84 @@ type tarReader interface {
 	Next() (*tar.Header, error)
 }
 
+type loadLayerResult struct {
+	entries       int
+	entriesByName map[string][]*TarEntry
+	finalizers    []func() error
+}
+
+func (d *differ) loadLayer(ctx context.Context, node *EventTreeNode, inputIdx int, tr tarReader) (*loadLayerResult, error) {
+	res := &loadLayerResult{
+		entriesByName: make(map[string][]*TarEntry),
+		finalizers:    nil,
+	}
+	for i := 0; ; i++ {
+		hdr, err := tr.Next()
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		res.entries++
+		ent := &TarEntry{
+			Index:  i,
+			Header: hdr,
+		}
+		if repDir := d.o.ReportDir; repDir != "" {
+			dirx := filepath.Clean(node.Context) // "/manifests-0/layers-0"
+			dir := filepath.Join(repDir, ReportDirInput0, dirx)
+			switch inputIdx {
+			case 0: // NOP
+			case 1:
+				dir = filepath.Join(repDir, ReportDirInput1, dirx)
+			default:
+				return res, fmt.Errorf("invalid input index %d", inputIdx)
+			}
+			ut, err := untar.Entry(ctx, dir, hdr, tr)
+			if err != nil {
+				return res, err
+			}
+			ent.Digest = ut.Digest
+			ent.extractedPath = ut.Path
+			if ut.Finalizer != nil {
+				res.finalizers = append(res.finalizers, ut.Finalizer)
+			}
+		} else {
+			ent.Digest, err = digest.SHA256.FromReader(tr)
+			if err != nil {
+				return res, err
+			}
+		}
+		res.entriesByName[hdr.Name] = append(res.entriesByName[hdr.Name], ent)
+	}
+
+	return res, nil
+}
+
 func (d *differ) diffLayerWithTarReader(ctx context.Context, node *EventTreeNode, in [2]EventInput, tr0, tr1 tarReader) error {
-	var (
-		tarEntries0 []*TarEntry
-		tarEntries1 []*TarEntry
-		errs        []error
-	)
-	tarEntriesByName0 := make(map[string][]*TarEntry)
-	tarEntriesByName1 := make(map[string][]*TarEntry)
-	var finalizers []func() error
+	l0, err := d.loadLayer(ctx, node, 0, tr0)
+	if err != nil {
+		return errors.New("failed to load layer (input-0)")
+	}
+	l1, err := d.loadLayer(ctx, node, 1, tr1)
+	if err != nil {
+		return errors.New("failed to load layer (input-1)")
+	}
 	defer func() {
-		for _, finalizer := range finalizers {
+		for _, finalizer := range append(l0.finalizers, l1.finalizers...) {
 			if finalizerErr := finalizer(); finalizerErr != nil {
 				log.G(ctx).WithError(finalizerErr).Debug("Failed to execute a layer finalizer")
 			}
 		}
 	}()
-	for i := 0; ; i++ {
-		hdr0, hdrErr0 := tr0.Next()
-		hdr1, hdrErr1 := tr1.Next()
-		if errors.Is(hdrErr0, io.EOF) && errors.Is(hdrErr1, io.EOF) {
-			break
+	var errs []error
+	if l0.entries != l1.entries {
+		ev := Event{
+			Type:   EventTypeLayerBlobMismatch,
+			Inputs: in,
+			Note:   fmt.Sprintf("length mismatch (%d vs %d)", l0.entries, l1.entries),
 		}
-		if errors.Is(hdrErr0, io.EOF) && !errors.Is(hdrErr1, io.EOF) {
-			ev := Event{
-				Type:   EventTypeLayerBlobMismatch,
-				Inputs: in,
-				Note:   fmt.Sprintf("input 1 is longer than input 0 (%d entries)", i+1),
-			}
-			if err := d.raiseEvent(ctx, node, ev, "layer"); err != nil {
-				errs = append(errs, err)
-			}
-			break
+		if err := d.raiseEvent(ctx, node, ev, "layer"); err != nil {
+			errs = append(errs, err)
 		}
-		if errors.Is(hdrErr1, io.EOF) && !errors.Is(hdrErr0, io.EOF) {
-			ev := Event{
-				Type:   EventTypeLayerBlobMismatch,
-				Inputs: in,
-				Note:   fmt.Sprintf("input 0 is longer than input 1 (%d entries)", i+1),
-			}
-			if err := d.raiseEvent(ctx, node, ev, "layer"); err != nil {
-				errs = append(errs, err)
-			}
-			break
-		}
-		if hdrErr0 != nil {
-			errs = append(errs, hdrErr0)
-			break
-		}
-		if hdrErr1 != nil {
-			errs = append(errs, hdrErr1)
-			break
-		}
-		var (
-			dgst           [2]digest.Digest
-			extractedPaths [2]string
-		)
-		if repDir := d.o.ReportDir; repDir != "" {
-			dirx := filepath.Clean(node.Context) // "/manifests-0/layers-0"
-			dir0 := filepath.Join(repDir, ReportDirInput0, dirx)
-			dir1 := filepath.Join(repDir, ReportDirInput1, dirx)
-			untar0, err := untar.Entry(ctx, dir0, hdr0, tr0)
-			if err != nil {
-				errs = append(errs, err)
-				break
-			}
-			untar1, err := untar.Entry(ctx, dir1, hdr1, tr1)
-			if err != nil {
-				errs = append(errs, err)
-				break
-			}
-			dgst[0], dgst[1] = untar0.Digest, untar1.Digest
-			extractedPaths[0], extractedPaths[1] = untar0.Path, untar1.Path
-		} else {
-			var err error
-			dgst[0], err = digest.SHA256.FromReader(tr0)
-			if err != nil {
-				errs = append(errs, err)
-				break
-			}
-			dgst[1], err = digest.SHA256.FromReader(tr1)
-			if err != nil {
-				errs = append(errs, err)
-				break
-			}
-		}
-		ent0 := &TarEntry{
-			Index:         i,
-			Header:        hdr0,
-			Digest:        dgst[0],
-			extractedPath: extractedPaths[0],
-		}
-		ent1 := &TarEntry{
-			Index:         i,
-			Header:        hdr1,
-			Digest:        dgst[1],
-			extractedPath: extractedPaths[1],
-		}
-		tarEntries0 = append(tarEntries0, ent0)
-		tarEntriesByName0[hdr0.Name] = append(tarEntriesByName0[hdr0.Name], ent0)
-		tarEntries1 = append(tarEntries1, ent1)
-		tarEntriesByName1[hdr1.Name] = append(tarEntriesByName1[hdr1.Name], ent1)
 	}
 	newNode := EventTreeNode{
 		Context: path.Join(node.Context, "layer"),
@@ -778,48 +755,39 @@ func (d *differ) diffLayerWithTarReader(ctx context.Context, node *EventTreeNode
 		},
 	}
 	var dirsToBeRemovedIfEmpty []string
-	if d.o.IgnoreFileOrder {
-		for name, ents0 := range tarEntriesByName0 {
-			ents1 := tarEntriesByName1[name]
-			if len(ents0) != len(ents1) {
-				ev := Event{
-					Type:   EventTypeLayerBlobMismatch,
-					Inputs: in,
-					Note:   eventNoteNameAppearanceMismatch(name, len(ents0), len(ents1)),
-				}
-				if err := d.raiseEvent(ctx, node /* not NewNode */, ev, "layer"); err != nil {
-					errs = append(errs, err)
-				}
-				continue
+	for name, ents0 := range l0.entriesByName {
+		ents1 := l1.entriesByName[name]
+		if len(ents0) != len(ents1) {
+			ev := Event{
+				Type:   EventTypeLayerBlobMismatch,
+				Inputs: in,
+				Note:   eventNoteNameAppearanceMismatch(name, len(ents0), len(ents1)),
 			}
-			dd, err := d.diffTarEntries(ctx, &newNode, in, [2][]*TarEntry{ents0, ents1})
-			dirsToBeRemovedIfEmpty = append(dirsToBeRemovedIfEmpty, dd...)
-			if err != nil {
+			if err := d.raiseEvent(ctx, node /* not NewNode */, ev, "layer"); err != nil {
 				errs = append(errs, err)
 			}
+			continue
 		}
-		// Iterate again to find entries that only appear in input 1
-		for name, ents1 := range tarEntriesByName1 {
-			ents0 := tarEntriesByName0[name]
-			if len(ents0) != len(ents1) {
-				ev := Event{
-					Type:   EventTypeLayerBlobMismatch,
-					Inputs: in,
-					Note:   eventNoteNameAppearanceMismatch(name, len(ents0), len(ents1)),
-				}
-				if err := d.raiseEvent(ctx, node /* not newNode */, ev, "layer"); err != nil {
-					errs = append(errs, err)
-				}
-			}
-		}
-	} else {
-		dd, err := d.diffTarEntries(ctx, &newNode, in, [2][]*TarEntry{tarEntries0, tarEntries1})
+		dd, err := d.diffTarEntries(ctx, &newNode, in, [2][]*TarEntry{ents0, ents1})
 		dirsToBeRemovedIfEmpty = append(dirsToBeRemovedIfEmpty, dd...)
 		if err != nil {
 			errs = append(errs, err)
 		}
 	}
-
+	// Iterate again to find entries that only appear in input 1
+	for name, ents1 := range l1.entriesByName {
+		ents0 := l0.entriesByName[name]
+		if len(ents0) != len(ents1) {
+			ev := Event{
+				Type:   EventTypeLayerBlobMismatch,
+				Inputs: in,
+				Note:   eventNoteNameAppearanceMismatch(name, len(ents0), len(ents1)),
+			}
+			if err := d.raiseEvent(ctx, node /* not newNode */, ev, "layer"); err != nil {
+				errs = append(errs, err)
+			}
+		}
+	}
 	sort.Sort(sort.Reverse(sort.StringSlice(dirsToBeRemovedIfEmpty)))
 	for _, d := range dirsToBeRemovedIfEmpty {
 		_ = os.Remove(d) // Not RemoveAll
