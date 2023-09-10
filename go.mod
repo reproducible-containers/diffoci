@@ -5,7 +5,7 @@ go 1.21.0
 require (
 	github.com/containerd/containerd v1.7.5
 	github.com/containerd/continuity v0.4.2
-	github.com/docker/cli v24.0.5+incompatible
+	github.com/docker/cli v24.0.6+incompatible
 	github.com/google/go-cmp v0.5.9
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/opencontainers/image-spec v1.1.0-rc4
