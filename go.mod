@@ -1,6 +1,6 @@
 module github.com/reproducible-containers/diffoci
 
-go 1.21
+go 1.21.0
 
 require (
 	github.com/containerd/containerd v1.7.3
