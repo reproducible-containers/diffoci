@@ -1137,6 +1137,8 @@ func (h *defaultEventHandler) HandleEventTreeNode(ctx context.Context, node *Eve
 				d0, d1 = "Atime "+hdr0.AccessTime.String(), "Atime "+hdr1.AccessTime.String()
 			} else if !hdr0.ChangeTime.Equal(hdr1.ChangeTime) {
 				d0, d1 = "Ctime "+hdr0.ChangeTime.String(), "Ctime "+hdr1.ChangeTime.String()
+			} else if ent0.Index != ent1.Index {
+				d0, d1 = fmt.Sprintf("Index %d", ent0.Index), fmt.Sprintf("Index %d", ent1.Index)
 			}
 			// TODO: Xattrs
 		}
