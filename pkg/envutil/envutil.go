@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/containerd/containerd/log"
+	"github.com/containerd/log"
 )
 
 func String(envName, defaultValue string) string {

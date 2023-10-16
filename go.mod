@@ -3,8 +3,9 @@ module github.com/reproducible-containers/diffoci
 go 1.21.0
 
 require (
-	github.com/containerd/containerd v1.7.6
+	github.com/containerd/containerd v1.7.7
 	github.com/containerd/continuity v0.4.2
+	github.com/containerd/log v0.1.0
 	github.com/docker/cli v24.0.6+incompatible
 	github.com/google/go-cmp v0.6.0
 	github.com/opencontainers/go-digest v1.0.0
@@ -19,7 +20,7 @@ require (
 	github.com/AdaLogics/go-fuzz-headers v0.0.0-20230811130428-ced1acdcaa24 // indirect
 	github.com/AdamKorcz/go-118-fuzz-build v0.0.0-20230306123547-8075edf89bb0 // indirect
 	github.com/Microsoft/go-winio v0.6.1 // indirect
-	github.com/Microsoft/hcsshim v0.11.0 // indirect
+	github.com/Microsoft/hcsshim v0.11.1 // indirect
 	github.com/containerd/cgroups v1.1.0 // indirect
 	github.com/containerd/console v1.0.3 // indirect
 	github.com/containerd/fifo v1.1.0 // indirect

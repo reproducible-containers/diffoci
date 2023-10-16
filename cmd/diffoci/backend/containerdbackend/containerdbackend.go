@@ -11,8 +11,8 @@ import (
 
 	"github.com/containerd/containerd"
 	"github.com/containerd/containerd/defaults"
-	"github.com/containerd/containerd/log"
 	"github.com/containerd/containerd/namespaces"
+	"github.com/containerd/log"
 	"github.com/reproducible-containers/diffoci/cmd/diffoci/backend"
 	"github.com/reproducible-containers/diffoci/pkg/envutil"
 	"github.com/spf13/cobra"
