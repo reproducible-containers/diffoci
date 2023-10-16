@@ -3,7 +3,7 @@ package main
 import (
 	_ "crypto/sha256"
 
-	"github.com/containerd/containerd/log"
+	"github.com/containerd/log"
 	"github.com/reproducible-containers/diffoci/cmd/diffoci/backend/backendmanager"
 	"github.com/reproducible-containers/diffoci/cmd/diffoci/commands/diff"
 	"github.com/reproducible-containers/diffoci/cmd/diffoci/commands/images"

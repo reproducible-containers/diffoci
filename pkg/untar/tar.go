@@ -28,8 +28,8 @@ import (
 	"time"
 	_ "unsafe"
 
-	"github.com/containerd/containerd/log"
 	"github.com/containerd/continuity/fs"
+	"github.com/containerd/log"
 	"github.com/opencontainers/go-digest"
 )
 

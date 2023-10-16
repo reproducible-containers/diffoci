@@ -3,7 +3,7 @@ package backendmanager
 import (
 	"fmt"
 
-	"github.com/containerd/containerd/log"
+	"github.com/containerd/log"
 	"github.com/reproducible-containers/diffoci/cmd/diffoci/backend"
 	"github.com/reproducible-containers/diffoci/cmd/diffoci/backend/containerdbackend"
 	"github.com/reproducible-containers/diffoci/cmd/diffoci/backend/localbackend"

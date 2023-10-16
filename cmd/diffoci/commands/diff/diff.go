@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/containerd/containerd/log"
 	"github.com/containerd/containerd/platforms"
+	"github.com/containerd/log"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/reproducible-containers/diffoci/cmd/diffoci/backend/backendmanager"
 	"github.com/reproducible-containers/diffoci/cmd/diffoci/flagutil"
