@@ -233,5 +233,5 @@ Depending on the time to build the image, more differences may happen, especiall
 
 #### Conclusion
 This example indicates that although the official `golang:1.21-alpine3.18` image binary is not fully reproducible, its non-reproducibility is practically negligible, and
-this image binary can be assured to be certainly built from with the [published source](https://github.com/docker-library/golang/blob/d1ff31b86b23fe721dc65806cd2bd79a4c71b039/1.21/alpine3.18/Dockerfile).
+this image binary can be assured to be certainly buildable from with the [published source](https://github.com/docker-library/golang/blob/d1ff31b86b23fe721dc65806cd2bd79a4c71b039/1.21/alpine3.18/Dockerfile).
 **If the published source is trustable**, this image binary can be trusted too.
