@@ -25,6 +25,7 @@ import (
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/reproducible-containers/diffoci/cmd/diffoci/backend"
 	"github.com/reproducible-containers/diffoci/pkg/dockercred"
+	"github.com/reproducible-containers/diffoci/pkg/platformutil"
 )
 
 func Load(ctx context.Context, stdout io.Writer, transferrer transfer.Transferrer, tarR io.Reader, plats []ocispec.Platform, foreknownRef string) error {
@@ -181,7 +182,8 @@ func (g *ImageGetter) loadDocker(ctx context.Context, docker, name string, plats
 		return nil, err
 	}
 	if !available {
-		return nil, fmt.Errorf("image %q lacks blobs for additional platforms: %w", name, errdefs.ErrUnavailable)
+		return nil, fmt.Errorf("image %q lacks blobs for additional platforms (%v): %w",
+			name, platformutil.FormatSlice(plats), errdefs.ErrUnavailable)
 	}
 	return &img, nil
 }
@@ -239,9 +241,10 @@ func (g *ImageGetter) Get(ctx context.Context, rawRef string, plats []ocispec.Pl
 	}
 	if !available {
 		if pullMode == PullNever {
-			return nil, fmt.Errorf("image %q lacks blobs for additional platforms: %w", name, errdefs.ErrUnavailable)
+			return nil, fmt.Errorf("image %q lacks blobs for additional platforms (%s): %w",
+				name, platformutil.FormatSlice(plats), errdefs.ErrUnavailable)
 		} else {
-			log.G(ctx).Infof("Pulling %q for additional platforms", name)
+			log.G(ctx).Infof("Pulling %q for additional platforms (%s)", name, platformutil.FormatSlice(plats))
 			if err := Pull(ctx, g.progressWriter, g.transferrer, g.credHelper, name, plats); err != nil {
 				return nil, fmt.Errorf("failed to pull %q: %w", name, err)
 			}

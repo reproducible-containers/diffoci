@@ -1,9 +1,11 @@
 package diff
 
 import (
+	"errors"
 	"fmt"
 	"os"
 
+	"github.com/containerd/containerd/errdefs"
 	"github.com/containerd/containerd/platforms"
 	"github.com/containerd/log"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
@@ -12,6 +14,7 @@ import (
 	"github.com/reproducible-containers/diffoci/cmd/diffoci/imagegetter"
 	"github.com/reproducible-containers/diffoci/pkg/diff"
 	"github.com/reproducible-containers/diffoci/pkg/localpathutil"
+	"github.com/reproducible-containers/diffoci/pkg/platformutil"
 	"github.com/spf13/cobra"
 )
 
@@ -83,6 +86,7 @@ func action(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
+	log.G(ctx).Infof("Target platforms: %v", platformutil.FormatSlice(plats))
 	platMC := platforms.Any(plats...)
 
 	var options diff.Options
@@ -164,6 +168,9 @@ func action(cmd *cobra.Command, args []string) error {
 		exitCode = 1
 	}
 	if err != nil {
+		if errors.Is(err, errdefs.ErrUnavailable) {
+			err = fmt.Errorf("%w (Hint: specify `--platform` explicitly, e.g., `--platform=linux/amd64`)", err)
+		}
 		log.G(ctx).Error(err)
 		exitCode = 2
 	}
