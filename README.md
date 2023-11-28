@@ -44,6 +44,10 @@ go install github.com/reproducible-containers/diffoci/cmd/diffoci@latest
 diffoci diff IMAGE0 IMAGE1
 ```
 
+> [!TIP]
+> Non-Linux users typically have to specify `--platform` explicitly.
+> e.g., `diffoci diff --platform=linux/amd64 IMAGE0 IMAGE1`.
+
 The strict mode is often too strict.
 Consider using the non-strict mode (see below).
 
