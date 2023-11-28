@@ -69,7 +69,7 @@ func NewCommand() *cobra.Command {
 	flags.Bool("semantic", false, "[Recommended] Alias for --ignore-*=true")
 
 	flags.Bool("verbose", false, "Verbose output")
-	flags.String("report-file", "", "Create a report file to the specified path")
+	flags.String("report-file", "", "Create a report file to the specified path (EXPERIMENTAL)")
 	flags.String("report-dir", "", "Create a detailed report in the specified directory")
 	flags.String("pull", imagegetter.PullMissing, "Pull mode (always|missing|never)")
 	return cmd
@@ -115,6 +115,7 @@ func action(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	if options.ReportFile != "" {
+		log.G(ctx).Warn("report-file is experimental. The file format is subject to change.")
 		options.ReportFile, err = localpathutil.Expand(options.ReportFile)
 		if err != nil {
 			return fmt.Errorf("invalid report-file path %q: %w", options.ReportFile, err)
