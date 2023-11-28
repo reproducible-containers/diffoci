@@ -94,6 +94,9 @@ func Diff(ctx context.Context, cs content.Provider, descs [2]ocispec.Descriptor,
 				return nil, err
 			}
 		}
+		if err := os.WriteFile(filepath.Join(o.ReportDir, ReportDirReadmeMD), []byte(ReportDirReadmeMDContent), 0444); err != nil {
+			return nil, err
+		}
 		reportFiles = append(reportFiles, filepath.Join(o.ReportDir, ReportDirReportJSON))
 	}
 	d := differ{
@@ -1168,13 +1171,21 @@ func (h *verboseEventHandler) HandleEventTreeNode(ctx context.Context, node *Eve
 }
 
 const (
+	ReportDirReadmeMD   = "README.md"
 	ReportDirReportJSON = "report.json"
 	ReportDirInput0     = "input-0"
 	ReportDirInput1     = "input-1"
 )
 
 var ReportDirRootFilenames = []string{
+	ReportDirReadmeMD,
 	ReportDirReportJSON,
 	ReportDirInput0,
 	ReportDirInput1,
 }
+
+const ReportDirReadmeMDContent = `# diffoci report directory
+- input-0: Input 0
+- input-1: Input 1
+- report.json: report file (EXPERIMENTAL; the file format is subject to change)
+`
