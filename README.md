@@ -2,7 +2,7 @@
 
 `diffoci` compares Docker and OCI container images for helping [reproducible builds](https://reproducible-builds.org/).
 
-> **Note**
+> [!NOTE]
 > "OCI" here refers to the "[Open Container Initiative](https://opencontainers.org/)", not to the "Oracle Cloud Infrastructure".
 
 ```console
@@ -43,6 +43,10 @@ go install github.com/reproducible-containers/diffoci/cmd/diffoci@latest
 ```bash
 diffoci diff IMAGE0 IMAGE1
 ```
+
+> [!TIP]
+> Non-Linux users typically have to specify `--platform` explicitly.
+> e.g., `diffoci diff --platform=linux/amd64 IMAGE0 IMAGE1`.
 
 The strict mode is often too strict.
 Consider using the non-strict mode (see below).
@@ -130,8 +134,7 @@ $ DOCKER_BUILDKIT=0 docker build -t my-golang-1.21-alpine3.18 'https://github.co
 Successfully tagged my-golang-1.21-alpine3.18:latest
 ```
 
-> **Note**
->
+> [!NOTE]
 > `DOCKER_BUILDKIT=0` is specified here because the official `golang:1.21-alpine3.18` image is currently built with the legacy builder.
 > A future revision of the official image may be built with BuildKit, and in such a case, `DOCKER_BUILDKIT=1` will rather need to be specified here.
 
@@ -158,7 +161,7 @@ Layer    ctx:/layers-3/layer       length mismatch (4 vs 3)
 Layer    ctx:/layers-3/layer       name "go/.wh..wh..opq" only appears in input 0  
 ```
 
-> **Note**
+> [!NOTE]
 > The `--semantic` flag is specified to ignore differences of timestamps, image names, and other "boring" attributes.
 > Without this flag, the `diffoci` command may print an enourmous amount of output.
 
@@ -234,5 +237,5 @@ Depending on the time to build the image, more differences may happen, especiall
 
 #### Conclusion
 This example indicates that although the official `golang:1.21-alpine3.18` image binary is not fully reproducible, its non-reproducibility is practically negligible, and
-this image binary can be assured to be certainly built from with the [published source](https://github.com/docker-library/golang/blob/d1ff31b86b23fe721dc65806cd2bd79a4c71b039/1.21/alpine3.18/Dockerfile).
+this image binary can be assured to be certainly buildable from with the [published source](https://github.com/docker-library/golang/blob/d1ff31b86b23fe721dc65806cd2bd79a4c71b039/1.21/alpine3.18/Dockerfile).
 **If the published source is trustable**, this image binary can be trusted too.
