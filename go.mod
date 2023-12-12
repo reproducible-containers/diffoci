@@ -3,7 +3,7 @@ module github.com/reproducible-containers/diffoci
 go 1.21.0
 
 require (
-	github.com/containerd/containerd v1.7.9
+	github.com/containerd/containerd v1.7.11
 	github.com/containerd/continuity v0.4.3
 	github.com/containerd/log v0.1.0
 	github.com/docker/cli v24.0.7+incompatible
@@ -31,6 +31,7 @@ require (
 	github.com/docker/docker-credential-helpers v0.7.0 // indirect
 	github.com/docker/go-events v0.0.0-20190806004212-e31b211e4f1c // indirect
 	github.com/docker/go-units v0.5.0 // indirect
+	github.com/felixge/httpsnoop v1.0.3 // indirect
 	github.com/go-logr/logr v1.2.4 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
@@ -52,6 +53,7 @@ require (
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/urfave/cli v1.22.14 // indirect
 	go.opencensus.io v0.24.0 // indirect
+	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.45.0 // indirect
 	go.opentelemetry.io/otel v1.19.0 // indirect
 	go.opentelemetry.io/otel/metric v1.19.0 // indirect
 	go.opentelemetry.io/otel/trace v1.19.0 // indirect
