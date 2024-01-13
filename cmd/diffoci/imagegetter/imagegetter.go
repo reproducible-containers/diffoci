@@ -28,6 +28,13 @@ import (
 	"github.com/reproducible-containers/diffoci/pkg/platformutil"
 )
 
+func wrapTransferProgressFunc(ctx context.Context, pf transfer.ProgressFunc) transfer.ProgressFunc {
+	return func(p transfer.Progress) {
+		log.G(ctx).Debugf("transfer progress %+v", p)
+		pf(p)
+	}
+}
+
 func Load(ctx context.Context, stdout io.Writer, transferrer transfer.Transferrer, tarR io.Reader, plats []ocispec.Platform, foreknownRef string) error {
 	decompressed, err := compression.DecompressStream(tarR)
 	if err != nil {
@@ -46,7 +53,7 @@ func Load(ctx context.Context, stdout io.Writer, transferrer transfer.Transferre
 	pf, done := ctrimages.ProgressHandler(ctx, stdout)
 	defer done()
 
-	if err := transferrer.Transfer(ctx, iis, is, transfer.WithProgress(pf)); err != nil {
+	if err := transferrer.Transfer(ctx, iis, is, transfer.WithProgress(wrapTransferProgressFunc(ctx, pf))); err != nil {
 		return fmt.Errorf("failed to load: %w", err)
 	}
 	return nil
@@ -63,7 +70,7 @@ func Pull(ctx context.Context, stdout io.Writer, transferrer transfer.Transferre
 	pf, done := ctrimages.ProgressHandler(ctx, stdout)
 	defer done()
 
-	if err := transferrer.Transfer(ctx, reg, is, transfer.WithProgress(pf)); err != nil {
+	if err := transferrer.Transfer(ctx, reg, is, transfer.WithProgress(wrapTransferProgressFunc(ctx, pf))); err != nil {
 		return fmt.Errorf("failed to pull %q: %w", ref, err)
 	}
 	return nil
