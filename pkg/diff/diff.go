@@ -36,6 +36,7 @@ type IgnoranceOptions struct {
 	IgnoreFileOrder             bool
 	IgnoreFileModeRedundantBits bool
 	IgnoreImageName             bool
+	CanonicalPaths              bool
 }
 
 type Options struct {
@@ -686,6 +687,10 @@ func (d *differ) loadLayer(ctx context.Context, node *EventTreeNode, inputIdx in
 		hdr, err := tr.Next()
 		if errors.Is(err, io.EOF) {
 			break
+		}
+		if d.o.CanonicalPaths {
+			hdr.Name = strings.TrimPrefix(hdr.Name, "/")
+			hdr.Name = strings.TrimPrefix(hdr.Name, "./")
 		}
 		res.entries++
 		ent := &TarEntry{
