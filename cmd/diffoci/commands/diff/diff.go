@@ -44,6 +44,7 @@ func NewCommand() *cobra.Command {
 					"ignore-file-order",
 					"ignore-file-mode-redundant-bits",
 					"ignore-image-name",
+					"ignore-tar-format",
 					"treat-canonical-paths-equal",
 				}
 				for _, f := range flagNames {
@@ -67,6 +68,7 @@ func NewCommand() *cobra.Command {
 	flags.Bool("ignore-file-order", false, "Ignore file order in tar layers")
 	flags.Bool("ignore-file-mode-redundant-bits", false, "Ignore redundant bits of file mode")
 	flags.Bool("ignore-image-name", false, "Ignore image name annotation")
+	flags.Bool("ignore-tar-format", false, "Ignore tar format")
 	flags.Bool("treat-canonical-paths-equal", false, "Treat leading `./` `/` `` in file paths as canonical")
 	flags.Bool("semantic", false, "[Recommended] Alias for --ignore-*=true --treat-canonical-paths-equal")
 
@@ -108,11 +110,15 @@ func action(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	options.CanonicalPaths, err = flags.GetBool("treat-canonical-paths-equal")
+	options.IgnoreImageName, err = flags.GetBool("ignore-image-name")
 	if err != nil {
 		return err
 	}
-	options.IgnoreImageName, err = flags.GetBool("ignore-image-name")
+	options.IgnoreTarFormat, err = flags.GetBool("ignore-tar-format")
+	if err != nil {
+		return err
+	}
+	options.CanonicalPaths, err = flags.GetBool("treat-canonical-paths-equal")
 	if err != nil {
 		return err
 	}

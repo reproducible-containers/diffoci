@@ -36,6 +36,7 @@ type IgnoranceOptions struct {
 	IgnoreFileOrder             bool
 	IgnoreFileModeRedundantBits bool
 	IgnoreImageName             bool
+	IgnoreTarFormat             bool
 	CanonicalPaths              bool
 }
 
@@ -688,6 +689,9 @@ func (d *differ) loadLayer(ctx context.Context, node *EventTreeNode, inputIdx in
 		if errors.Is(err, io.EOF) {
 			break
 		}
+		if d.o.IgnoreTarFormat {
+			hdr.Format = tar.FormatUnknown
+		}
 		if d.o.CanonicalPaths {
 			hdr.Name = strings.TrimPrefix(hdr.Name, "/")
 			hdr.Name = strings.TrimPrefix(hdr.Name, "./")
@@ -1147,6 +1151,9 @@ func (h *defaultEventHandler) HandleEventTreeNode(ctx context.Context, node *Eve
 				d0, d1 = "Ctime "+hdr0.ChangeTime.String(), "Ctime "+hdr1.ChangeTime.String()
 			} else if ent0.Index != ent1.Index {
 				d0, d1 = fmt.Sprintf("Index %d", ent0.Index), fmt.Sprintf("Index %d", ent1.Index)
+			} else if ent0.Header.Format != ent1.Header.Format {
+				d0 = fmt.Sprintf("Format %s (%d)", ent0.Header.Format, ent0.Header.Format)
+				d1 = fmt.Sprintf("Format %s (%d)", ent1.Header.Format, ent1.Header.Format)
 			}
 			// TODO: Xattrs
 		}
