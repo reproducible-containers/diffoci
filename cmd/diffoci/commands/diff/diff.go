@@ -6,7 +6,7 @@ import (
 	"os"
 
 	"github.com/containerd/containerd/errdefs"
-	"github.com/containerd/containerd/platforms"
+	"github.com/containerd/platforms"
 	"github.com/containerd/log"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/reproducible-containers/diffoci/cmd/diffoci/backend/backendmanager"
