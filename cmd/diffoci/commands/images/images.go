@@ -6,9 +6,9 @@ import (
 	"text/tabwriter"
 
 	"github.com/containerd/containerd/images"
+	"github.com/containerd/log"
 	"github.com/containerd/platforms"
 	refdocker "github.com/distribution/reference"
-	"github.com/containerd/log"
 	"github.com/reproducible-containers/diffoci/cmd/diffoci/backend/backendmanager"
 	"github.com/spf13/cobra"
 )

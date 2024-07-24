@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/containerd/containerd/errdefs"
-	"github.com/containerd/platforms"
+	"github.com/containerd/errdefs"
 	"github.com/containerd/log"
+	"github.com/containerd/platforms"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/reproducible-containers/diffoci/cmd/diffoci/backend/backendmanager"
 	"github.com/reproducible-containers/diffoci/cmd/diffoci/flagutil"

@@ -5,8 +5,8 @@ import (
 	"fmt"
 
 	"github.com/containerd/containerd/images"
-	refdocker "github.com/distribution/reference"
 	"github.com/containerd/log"
+	refdocker "github.com/distribution/reference"
 	"github.com/reproducible-containers/diffoci/cmd/diffoci/backend/backendmanager"
 	"github.com/spf13/cobra"
 )
