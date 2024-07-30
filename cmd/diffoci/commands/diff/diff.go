@@ -76,6 +76,7 @@ func NewCommand() *cobra.Command {
 	flags.String("report-file", "", "Create a report file to the specified path (EXPERIMENTAL)")
 	flags.String("report-dir", "", "Create a detailed report in the specified directory")
 	flags.String("pull", imagegetter.PullMissing, "Pull mode (always|missing|never)")
+	flags.Float64("max-scale", 1.0, "Scale factor for maximum values (e.g., maxTarBlobSize = 4GiB)")
 	return cmd
 }
 
@@ -151,6 +152,11 @@ func action(cmd *cobra.Command, args []string) error {
 	}
 	if verbose {
 		options.EventHandler = diff.VerboseEventHandler
+	}
+
+	options.MaxScale, err = flags.GetFloat64("max-scale")
+	if err != nil {
+		return err
 	}
 
 	pullMode, err := flags.GetString("pull")

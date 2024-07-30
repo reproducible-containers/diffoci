@@ -45,6 +45,7 @@ type Options struct {
 	EventHandler
 	ReportFile string
 	ReportDir  string
+	MaxScale   float64
 }
 
 func (o *Options) digestMayChange() bool {
@@ -100,6 +101,9 @@ func Diff(ctx context.Context, cs content.Provider, descs [2]ocispec.Descriptor,
 			return nil, err
 		}
 		reportFiles = append(reportFiles, filepath.Join(o.ReportDir, ReportDirReportJSON))
+	}
+	if o.MaxScale == 0.0 {
+		o.MaxScale = 1.0
 	}
 	d := differ{
 		cs:     cs,
@@ -404,7 +408,7 @@ func (d *differ) diffAnnotationsField(ctx context.Context, node *EventTreeNode, 
 func (d *differ) diffIndex(ctx context.Context, node *EventTreeNode, in [2]EventInput) error {
 	for i := 0; i < 2; i++ {
 		var err error
-		in[i].Index, err = readBlobWithType[ocispec.Index](ctx, d.cs, *in[i].Descriptor)
+		in[i].Index, err = readBlobWithType[ocispec.Index](ctx, d.cs, *in[i].Descriptor, d.o.MaxScale)
 		if err != nil {
 			return fmt.Errorf("failed to read index (%v): %w", in[i].Descriptor, err) // critical, not joined
 		}
@@ -431,7 +435,7 @@ func (d *differ) diffIndex(ctx context.Context, node *EventTreeNode, in [2]Event
 	if err := d.diffDescriptorSliceField(ctx, node, in, EventTypeIndexBlobMismatch, [2][]ocispec.Descriptor{
 		in[0].Index.Manifests,
 		in[1].Index.Manifests,
-	}, "Manifests", maxManifests,
+	}, "Manifests", int(maxManifests*d.o.MaxScale),
 		func(desc ocispec.Descriptor) (tolerable bool, vErr error) {
 			if !images.IsManifestType(desc.MediaType) {
 				return false, fmt.Errorf("expected a manifest type, got %q", desc.MediaType)
@@ -469,7 +473,7 @@ func (d *differ) diffManifest(ctx context.Context, node *EventTreeNode, in [2]Ev
 	}
 	for i := 0; i < 2; i++ {
 		var err error
-		in[i].Manifest, err = readBlobWithType[ocispec.Manifest](ctx, d.cs, *in[i].Descriptor)
+		in[i].Manifest, err = readBlobWithType[ocispec.Manifest](ctx, d.cs, *in[i].Descriptor, d.o.MaxScale)
 		if err != nil {
 			return fmt.Errorf("failed to read manifest (%v): %w", in[i].Descriptor, err)
 		}
@@ -503,7 +507,7 @@ func (d *differ) diffManifest(ctx context.Context, node *EventTreeNode, in [2]Ev
 		if err := d.diffDescriptorSliceField(ctx, node, in, EventTypeManifestBlobMismatch, [2][]ocispec.Descriptor{
 			in[0].Manifest.Layers,
 			in[1].Manifest.Layers,
-		}, "Layers", maxLayers,
+		}, "Layers", int(maxLayers*d.o.MaxScale),
 			func(desc ocispec.Descriptor) (tolerable bool, vErr error) {
 				if !images.IsLayerType(desc.MediaType) {
 					return false, fmt.Errorf("expected a layer type, got %q", desc.MediaType)
@@ -541,7 +545,7 @@ func (d *differ) diffManifest(ctx context.Context, node *EventTreeNode, in [2]Ev
 func (d *differ) diffConfig(ctx context.Context, node *EventTreeNode, in [2]EventInput) error {
 	for i := 0; i < 2; i++ {
 		var err error
-		in[i].Config, err = readBlobWithType[ocispec.Image](ctx, d.cs, *in[i].Descriptor)
+		in[i].Config, err = readBlobWithType[ocispec.Image](ctx, d.cs, *in[i].Descriptor, d.o.MaxScale)
 		if err != nil {
 			return fmt.Errorf("failed to read config (%v): %w", in[i].Descriptor, err)
 		}
@@ -622,7 +626,7 @@ func (d *differ) diffConfig(ctx context.Context, node *EventTreeNode, in [2]Even
 }
 
 func (d *differ) diffLayersWithSquashing(ctx context.Context, node *EventTreeNode, in [2]EventInput) error {
-	tr0, trCloser0, err := openTarReaderWithSquashing(ctx, d.cs, in[0].Manifest.Layers)
+	tr0, trCloser0, err := openTarReaderWithSquashing(ctx, d.cs, in[0].Manifest.Layers, d.o.MaxScale)
 	if err != nil {
 		return err
 	}
@@ -632,7 +636,7 @@ func (d *differ) diffLayersWithSquashing(ctx context.Context, node *EventTreeNod
 		}
 	}()
 
-	tr1, trCloser1, err := openTarReaderWithSquashing(ctx, d.cs, in[1].Manifest.Layers)
+	tr1, trCloser1, err := openTarReaderWithSquashing(ctx, d.cs, in[1].Manifest.Layers, d.o.MaxScale)
 	if err != nil {
 		return err
 	}
@@ -645,7 +649,7 @@ func (d *differ) diffLayersWithSquashing(ctx context.Context, node *EventTreeNod
 }
 
 func (d *differ) diffLayer(ctx context.Context, node *EventTreeNode, in [2]EventInput) error {
-	tr0, trCloser0, err := openTarReader(ctx, d.cs, *in[0].Descriptor)
+	tr0, trCloser0, err := openTarReader(ctx, d.cs, *in[0].Descriptor, d.o.MaxScale)
 	if err != nil {
 		return err
 	}
@@ -655,7 +659,7 @@ func (d *differ) diffLayer(ctx context.Context, node *EventTreeNode, in [2]Event
 		}
 	}()
 
-	tr1, trCloser1, err := openTarReader(ctx, d.cs, *in[1].Descriptor)
+	tr1, trCloser1, err := openTarReader(ctx, d.cs, *in[1].Descriptor, d.o.MaxScale)
 	if err != nil {
 		return err
 	}
@@ -894,9 +898,9 @@ func (d *differ) diffTarEntry(ctx context.Context, node *EventTreeNode, in [2]Ev
 	return dirsToBeRemovedIfEmpty, errors.Join(errs...)
 }
 
-func openTarReader(ctx context.Context, cs content.Provider, desc ocispec.Descriptor) (tr tarReader, closer func() error, err error) {
-	if desc.Size > int64(maxTarBlobSize) {
-		return nil, nil, fmt.Errorf("too large tar blob (%d > %d bytes)", desc.Size, int64(maxTarBlobSize))
+func openTarReader(ctx context.Context, cs content.Provider, desc ocispec.Descriptor, maxScale float64) (tr tarReader, closer func() error, err error) {
+	if desc.Size > int64(maxTarBlobSize*maxScale) {
+		return nil, nil, fmt.Errorf("too large tar blob (%d > %d bytes)", desc.Size, int64(maxTarBlobSize*maxScale))
 	}
 	ra, err := cs.ReaderAt(ctx, desc)
 	if err != nil {
@@ -908,16 +912,16 @@ func openTarReader(ctx context.Context, cs content.Provider, desc ocispec.Descri
 		ra.Close()
 		return nil, nil, err
 	}
-	lr := io.LimitReader(dr, maxTarStreamSize)
+	lr := io.LimitReader(dr, int64(maxTarStreamSize*maxScale))
 	return tar.NewReader(lr), ra.Close, nil
 }
 
-func openTarReaderWithSquashing(ctx context.Context, cs content.Provider, descs []ocispec.Descriptor) (tr tarReader, closer func() error, err error) {
+func openTarReaderWithSquashing(ctx context.Context, cs content.Provider, descs []ocispec.Descriptor, maxScale float64) (tr tarReader, closer func() error, err error) {
 	tarReaders := make([]tarReader, len(descs))
 	closers := make([]func() error, len(descs))
 	for i := 0; i < len(descs); i++ {
 		var err error
-		tarReaders[i], closers[i], err = openTarReader(ctx, cs, descs[i])
+		tarReaders[i], closers[i], err = openTarReader(ctx, cs, descs[i], maxScale)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -963,9 +967,9 @@ begin:
 
 func readBlobWithType[T interface {
 	ocispec.Index | ocispec.Manifest | ocispec.Image
-}](ctx context.Context, cs content.Provider, desc ocispec.Descriptor) (*T, error) {
-	if desc.Size > maxJSONBlobSize {
-		return nil, fmt.Errorf("too large JSON blob (%d > %d bytes)", desc.Size, maxJSONBlobSize)
+}](ctx context.Context, cs content.Provider, desc ocispec.Descriptor, maxScale float64) (*T, error) {
+	if desc.Size > int64(maxJSONBlobSize*maxScale) {
+		return nil, fmt.Errorf("too large JSON blob (%d > %d bytes)", desc.Size, int64(maxJSONBlobSize*maxScale))
 	}
 	b, err := content.ReadBlob(ctx, cs, desc)
 	if err != nil {
@@ -1039,6 +1043,7 @@ const (
 	EventTypeTarEntryMismatch     = EventType("TarEntryMismatch")
 )
 
+// MaxScale option is multiplied to these constants
 const (
 	maxManifests     = 4096
 	maxLayers        = 4096
