@@ -739,11 +739,11 @@ func (d *differ) loadLayer(ctx context.Context, node *EventTreeNode, inputIdx in
 func (d *differ) diffLayerWithTarReader(ctx context.Context, node *EventTreeNode, in [2]EventInput, tr0, tr1 tarReader) error {
 	l0, err := d.loadLayer(ctx, node, 0, tr0)
 	if err != nil {
-		return errors.New("failed to load layer (input-0)")
+		return fmt.Errorf("failed to load layer (input-0): %w", err)
 	}
 	l1, err := d.loadLayer(ctx, node, 1, tr1)
 	if err != nil {
-		return errors.New("failed to load layer (input-1)")
+		return fmt.Errorf("failed to load layer (input-1): %w", err)
 	}
 	defer func() {
 		for _, finalizer := range append(l0.finalizers, l1.finalizers...) {
