@@ -3,7 +3,7 @@ module github.com/reproducible-containers/diffoci
 go 1.21.0
 
 require (
-	github.com/containerd/containerd v1.7.20
+	github.com/containerd/containerd v1.7.21
 	github.com/containerd/continuity v0.4.3
 	github.com/containerd/errdefs v0.1.0
 	github.com/containerd/log v0.1.0
@@ -47,7 +47,8 @@ require (
 	github.com/moby/sys/mountinfo v0.6.2 // indirect
 	github.com/moby/sys/sequential v0.5.0 // indirect
 	github.com/moby/sys/signal v0.7.0 // indirect
-	github.com/moby/sys/user v0.1.0 // indirect
+	github.com/moby/sys/user v0.3.0 // indirect
+	github.com/moby/sys/userns v0.1.0 // indirect
 	github.com/opencontainers/runtime-spec v1.1.0 // indirect
 	github.com/opencontainers/selinux v1.11.0 // indirect
 	github.com/pelletier/go-toml v1.9.5 // indirect
