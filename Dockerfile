@@ -1,4 +1,4 @@
-FROM golang:1.23.1-bookworm@sha256:1a5326b07cbab12f4fd7800425f2cf25ff2bd62c404ef41b56cb99669a710a83 AS build-artifacts
+FROM golang:1.23.2-bookworm@sha256:18d2f940cc20497f85466fdbe6c3d7a52ed2db1d5a1a49a4508ffeee2dff1463 AS build-artifacts
 
 RUN --mount=type=cache,target=/root/.cache \
   --mount=type=cache,target=/go \
