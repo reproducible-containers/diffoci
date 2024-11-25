@@ -3,7 +3,7 @@ module github.com/reproducible-containers/diffoci
 go 1.22
 
 require (
-	github.com/containerd/containerd v1.7.23
+	github.com/containerd/containerd v1.7.24
 	github.com/containerd/continuity v0.4.3
 	github.com/containerd/errdefs v0.3.0
 	github.com/containerd/log v0.1.0
