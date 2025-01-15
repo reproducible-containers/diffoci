@@ -5,7 +5,7 @@ go 1.22
 require (
 	github.com/containerd/containerd v1.7.25
 	github.com/containerd/continuity v0.4.4
-	github.com/containerd/errdefs v0.3.0
+	github.com/containerd/errdefs v1.0.0
 	github.com/containerd/log v0.1.0
 	github.com/containerd/platforms v0.2.1
 	github.com/distribution/reference v0.6.0
