@@ -15,7 +15,7 @@ jobs:
           go-version: 1.21.x
       - run: go test -covermode=atomic -race -v ./...
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@v6.1.1
+        uses: golangci/golangci-lint-action@v6.3.2
         with:
           version: v1.55.2
           args: --verbose
