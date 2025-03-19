@@ -1,6 +1,6 @@
 module github.com/reproducible-containers/diffoci
 
-go 1.22
+go 1.23
 
 require (
 	github.com/containerd/containerd v1.7.27
@@ -15,7 +15,7 @@ require (
 	github.com/opencontainers/image-spec v1.1.1
 	github.com/spf13/cobra v1.9.1
 	github.com/spf13/pflag v1.0.6
-	go.etcd.io/bbolt v1.3.11
+	go.etcd.io/bbolt v1.4.0
 	golang.org/x/sys v0.29.0
 )
 
