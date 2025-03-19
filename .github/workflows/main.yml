@@ -15,7 +15,7 @@ jobs:
           go-version: "oldstable"
       - run: go test -covermode=atomic -race -v ./...
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@v6.5.1
+        uses: golangci/golangci-lint-action@v6.5.2
         with:
           args: --verbose
       - run: go install ./cmd/diffoci
