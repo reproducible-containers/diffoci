@@ -869,7 +869,7 @@ func (d *differ) diffTarEntries(ctx context.Context, node *EventTreeNode, in [2]
 func (d *differ) diffTarEntry(ctx context.Context, node *EventTreeNode, in [2]EventInput) (dirsToBeRemovedIfEmpty []string, retErr error) {
 	var negligibleTarFields []string
 	if d.o.IgnoreFileTimestamps {
-		negligibleTarFields = append(negligibleTarFields, "ModTime", "AccessTime", "ChangeTime")
+		negligibleTarFields = append(negligibleTarFields, "ModTime", "AccessTime", "ChangeTime", "PAXRecords")
 	}
 	cmpOpts := []cmp.Option{cmpopts.IgnoreUnexported(TarEntry{}), cmpopts.IgnoreFields(tar.Header{}, negligibleTarFields...)}
 	ent0, ent1 := *in[0].TarEntry, *in[1].TarEntry
