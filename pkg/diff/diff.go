@@ -36,6 +36,7 @@ type IgnoranceOptions struct {
 	IgnoreHistory               bool
 	IgnoreFileOrder             bool
 	IgnoreFileModeRedundantBits bool
+	IgnoreFileTimestamps        bool
 	IgnoreImageName             bool
 	IgnoreTarFormat             bool
 	CanonicalPaths              bool
@@ -865,7 +866,7 @@ func (d *differ) diffTarEntries(ctx context.Context, node *EventTreeNode, in [2]
 
 func (d *differ) diffTarEntry(ctx context.Context, node *EventTreeNode, in [2]EventInput) (dirsToBeRemovedIfEmpty []string, retErr error) {
 	var negligibleTarFields []string
-	if d.o.IgnoreTimestamps {
+	if d.o.IgnoreFileTimestamps {
 		negligibleTarFields = append(negligibleTarFields, "ModTime", "AccessTime", "ChangeTime", "PAXRecords")
 	}
 	cmpOpts := []cmp.Option{cmpopts.IgnoreUnexported(TarEntry{}), cmpopts.IgnoreFields(tar.Header{}, negligibleTarFields...)}
