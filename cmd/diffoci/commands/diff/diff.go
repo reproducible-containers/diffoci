@@ -39,13 +39,25 @@ func NewCommand() *cobra.Command {
 			flags := cmd.Flags()
 			if semantic, _ := cmd.Flags().GetBool("semantic"); semantic {
 				flagNames := []string{
-					"ignore-timestamps",
 					"ignore-history",
 					"ignore-file-order",
 					"ignore-file-mode-redundant-bits",
+					"ignore-file-timestamps",
+					"ignore-image-timestamps",
 					"ignore-image-name",
 					"ignore-tar-format",
 					"treat-canonical-paths-equal",
+				}
+				for _, f := range flagNames {
+					if err := flags.Set(f, "true"); err != nil {
+						return err
+					}
+				}
+			}
+			if ignoreTimestamps, _ := cmd.Flags().GetBool("ignore-timestamps"); ignoreTimestamps {
+				flagNames := []string{
+					"ignore-file-timestamps",
+					"ignore-image-timestamps",
 				}
 				for _, f := range flagNames {
 					if err := flags.Set(f, "true"); err != nil {
@@ -62,11 +74,12 @@ func NewCommand() *cobra.Command {
 
 	flags := cmd.Flags()
 	flagutil.AddPlatformFlags(flags)
-
-	flags.Bool("ignore-timestamps", false, "Ignore timestamps")
+	flags.Bool("ignore-timestamps", false, "Ignore timestamps - Alias for --ignore-*-timestamps=true")
 	flags.Bool("ignore-history", false, "Ignore history")
 	flags.Bool("ignore-file-order", false, "Ignore file order in tar layers")
 	flags.Bool("ignore-file-mode-redundant-bits", false, "Ignore redundant bits of file mode")
+	flags.Bool("ignore-file-timestamps", false, "Ignore timestamps on files")
+	flags.Bool("ignore-image-timestamps", false, "Ignore timestamps in image metadata")
 	flags.Bool("ignore-image-name", false, "Ignore image name annotation")
 	flags.Bool("ignore-tar-format", false, "Ignore tar format")
 	flags.Bool("treat-canonical-paths-equal", false, "Treat leading `./` `/` `` in file paths as canonical")
@@ -95,10 +108,6 @@ func action(cmd *cobra.Command, args []string) error {
 	platMC := platforms.Any(plats...)
 
 	var options diff.Options
-	options.IgnoreTimestamps, err = flags.GetBool("ignore-timestamps")
-	if err != nil {
-		return err
-	}
 	options.IgnoreHistory, err = flags.GetBool("ignore-history")
 	if err != nil {
 		return err
@@ -108,6 +117,14 @@ func action(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	options.IgnoreFileModeRedundantBits, err = flags.GetBool("ignore-file-mode-redundant-bits")
+	if err != nil {
+		return err
+	}
+	options.IgnoreFileTimestamps, err = flags.GetBool("ignore-file-timestamps")
+	if err != nil {
+		return err
+	}
+	options.IgnoreImageTimestamps, err = flags.GetBool("ignore-image-timestamps")
 	if err != nil {
 		return err
 	}
