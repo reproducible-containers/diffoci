@@ -43,6 +43,7 @@ func NewCommand() *cobra.Command {
 					"ignore-history",
 					"ignore-file-order",
 					"ignore-file-mode-redundant-bits",
+					"ignore-file-timestamps",
 					"ignore-image-name",
 					"ignore-tar-format",
 					"treat-canonical-paths-equal",
@@ -67,6 +68,7 @@ func NewCommand() *cobra.Command {
 	flags.Bool("ignore-history", false, "Ignore history")
 	flags.Bool("ignore-file-order", false, "Ignore file order in tar layers")
 	flags.Bool("ignore-file-mode-redundant-bits", false, "Ignore redundant bits of file mode")
+	flags.Bool("ignore-file-timestamps", false, "Ignore timestamps on files")
 	flags.Bool("ignore-image-name", false, "Ignore image name annotation")
 	flags.Bool("ignore-tar-format", false, "Ignore tar format")
 	flags.Bool("treat-canonical-paths-equal", false, "Treat leading `./` `/` `` in file paths as canonical")
@@ -108,6 +110,10 @@ func action(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	options.IgnoreFileModeRedundantBits, err = flags.GetBool("ignore-file-mode-redundant-bits")
+	if err != nil {
+		return err
+	}
+	options.IgnoreFileTimestamps, err = flags.GetBool("ignore-file-timestamps")
 	if err != nil {
 		return err
 	}
