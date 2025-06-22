@@ -700,6 +700,8 @@ func (d *differ) loadLayer(ctx context.Context, node *EventTreeNode, inputIdx in
 		if d.o.CanonicalPaths {
 			hdr.Name = strings.TrimPrefix(hdr.Name, "/")
 			hdr.Name = strings.TrimPrefix(hdr.Name, "./")
+			hdr.Linkname = strings.TrimPrefix(hdr.Linkname, "/")
+			hdr.Linkname = strings.TrimPrefix(hdr.Linkname, "./")
 		}
 		if os.Geteuid() != 0 && runtime.GOOS == "linux" {
 			//nolint:staticcheck // SA1019: hdr.Xattrs has been deprecated since Go 1.10: Use PAXRecords instead.
