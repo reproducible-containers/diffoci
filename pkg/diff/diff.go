@@ -868,10 +868,17 @@ func (d *differ) diffTarEntries(ctx context.Context, node *EventTreeNode, in [2]
 
 func (d *differ) diffTarEntry(ctx context.Context, node *EventTreeNode, in [2]EventInput) (dirsToBeRemovedIfEmpty []string, retErr error) {
 	var negligibleTarFields []string
+	var negligiblePAXFields map[string]struct{}
 	if d.o.IgnoreFileTimestamps {
 		negligibleTarFields = append(negligibleTarFields, "ModTime", "AccessTime", "ChangeTime", "PAXRecords")
+		negligiblePAXFields = map[string]struct{}{"mtime": {}, "atime": {}, "ctime": {}}
+	}
+	discardFunc := func(k, _ string) bool {
+		_, ok := negligiblePAXFields[k]
+		return ok
 	}
 	cmpOpts := []cmp.Option{cmpopts.IgnoreUnexported(TarEntry{}), cmpopts.IgnoreFields(tar.Header{}, negligibleTarFields...)}
+	paxOpts := []cmp.Option{cmpopts.IgnoreMapEntries(discardFunc)}
 	ent0, ent1 := *in[0].TarEntry, *in[1].TarEntry
 	if d.o.IgnoreFileOrder {
 		// cmpopts.IgnoreFields cannot be used for int
@@ -886,6 +893,16 @@ func (d *differ) diffTarEntry(ctx context.Context, node *EventTreeNode, in [2]Ev
 	}
 	var errs []error
 	if diff := cmp.Diff(ent0, ent1, cmpOpts...); diff != "" {
+		ev := Event{
+			Type:   EventTypeTarEntryMismatch,
+			Inputs: in,
+			Diff:   diff,
+			Note:   fmt.Sprintf("name %q", ent0.Header.Name),
+		}
+		if err := d.raiseEvent(ctx, node, ev, "tarentry"); err != nil {
+			errs = append(errs, err)
+		}
+	} else if diff := cmp.Diff(ent0.Header.PAXRecords, ent1.Header.PAXRecords, paxOpts...); diff != "" {
 		ev := Event{
 			Type:   EventTypeTarEntryMismatch,
 			Inputs: in,
