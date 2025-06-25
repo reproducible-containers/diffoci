@@ -32,10 +32,11 @@ import (
 )
 
 type IgnoranceOptions struct {
-	IgnoreTimestamps            bool
 	IgnoreHistory               bool
 	IgnoreFileOrder             bool
 	IgnoreFileModeRedundantBits bool
+	IgnoreFileTimestamps        bool
+	IgnoreImageTimestamps       bool
 	IgnoreImageName             bool
 	IgnoreTarFormat             bool
 	CanonicalPaths              bool
@@ -374,7 +375,7 @@ func (d *differ) diffDescriptorSliceField(ctx context.Context, node *EventTreeNo
 
 func (d *differ) diffAnnotationsField(ctx context.Context, node *EventTreeNode, in [2]EventInput, evType EventType, maps [2]map[string]string, fieldName string) error {
 	negligible := map[string]struct{}{}
-	if d.o.IgnoreTimestamps {
+	if d.o.IgnoreImageTimestamps {
 		negligible[ocispec.AnnotationCreated] = struct{}{}
 	}
 	if d.o.IgnoreImageName {
@@ -555,7 +556,7 @@ func (d *differ) diffConfig(ctx context.Context, node *EventTreeNode, in [2]Even
 	if d.o.digestMayChange() {
 		negligibleFields = append(negligibleFields, "RootFS")
 	}
-	if d.o.IgnoreTimestamps {
+	if d.o.IgnoreImageTimestamps {
 		// history contains timestamps
 		negligibleFields = append(negligibleFields, "Created", "History")
 	}
@@ -603,7 +604,7 @@ func (d *differ) diffConfig(ctx context.Context, node *EventTreeNode, in [2]Even
 			}
 		} else {
 			var negligibleHistoryFields []string
-			if d.o.IgnoreTimestamps {
+			if d.o.IgnoreImageTimestamps {
 				negligibleHistoryFields = append(negligibleHistoryFields, "Created")
 			}
 			for i := range in[0].Config.History {
@@ -867,7 +868,7 @@ func (d *differ) diffTarEntries(ctx context.Context, node *EventTreeNode, in [2]
 
 func (d *differ) diffTarEntry(ctx context.Context, node *EventTreeNode, in [2]EventInput) (dirsToBeRemovedIfEmpty []string, retErr error) {
 	var negligibleTarFields []string
-	if d.o.IgnoreTimestamps {
+	if d.o.IgnoreFileTimestamps {
 		negligibleTarFields = append(negligibleTarFields, "ModTime", "AccessTime", "ChangeTime")
 	}
 	cmpOpts := []cmp.Option{cmpopts.IgnoreUnexported(TarEntry{}), cmpopts.IgnoreFields(tar.Header{}, negligibleTarFields...)}
