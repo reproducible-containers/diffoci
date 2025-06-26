@@ -703,6 +703,14 @@ func (d *differ) loadLayer(ctx context.Context, node *EventTreeNode, inputIdx in
 			hdr.Name = strings.TrimPrefix(hdr.Name, "./")
 			hdr.Linkname = strings.TrimPrefix(hdr.Linkname, "/")
 			hdr.Linkname = strings.TrimPrefix(hdr.Linkname, "./")
+			if path, ok := hdr.PAXRecords["path"]; ok {
+				path = strings.TrimPrefix(path, "/")
+				hdr.PAXRecords["path"] = strings.TrimPrefix(path, "./")
+			}
+			if path, ok := hdr.PAXRecords["linkpath"]; ok {
+				path = strings.TrimPrefix(path, "/")
+				hdr.PAXRecords["linkpath"] = strings.TrimPrefix(path, "./")
+			}
 		}
 		if os.Geteuid() != 0 && runtime.GOOS == "linux" {
 			//nolint:staticcheck // SA1019: hdr.Xattrs has been deprecated since Go 1.10: Use PAXRecords instead.
@@ -868,10 +876,19 @@ func (d *differ) diffTarEntries(ctx context.Context, node *EventTreeNode, in [2]
 
 func (d *differ) diffTarEntry(ctx context.Context, node *EventTreeNode, in [2]EventInput) (dirsToBeRemovedIfEmpty []string, retErr error) {
 	var negligibleTarFields []string
+	negligiblePAXFields := map[string]struct{}{}
 	if d.o.IgnoreFileTimestamps {
-		negligibleTarFields = append(negligibleTarFields, "ModTime", "AccessTime", "ChangeTime")
+		negligibleTarFields = append(negligibleTarFields, "ModTime", "AccessTime", "ChangeTime", "PAXRecords")
+		negligiblePAXFields["mtime"] = struct{}{}
+		negligiblePAXFields["atime"] = struct{}{}
+		negligiblePAXFields["ctime"] = struct{}{}
+	}
+	discardFunc := func(k, _ string) bool {
+		_, ok := negligiblePAXFields[k]
+		return ok
 	}
 	cmpOpts := []cmp.Option{cmpopts.IgnoreUnexported(TarEntry{}), cmpopts.IgnoreFields(tar.Header{}, negligibleTarFields...)}
+	paxOpts := []cmp.Option{cmpopts.IgnoreMapEntries(discardFunc)}
 	ent0, ent1 := *in[0].TarEntry, *in[1].TarEntry
 	if d.o.IgnoreFileOrder {
 		// cmpopts.IgnoreFields cannot be used for int
@@ -884,8 +901,26 @@ func (d *differ) diffTarEntry(ctx context.Context, node *EventTreeNode, in [2]Ev
 		ent0.Header.Mode &= 0x0FFF
 		ent1.Header.Mode &= 0x0FFF
 	}
+	pax0 := ent0.Header.PAXRecords
+	if pax0 == nil {
+		pax0 = map[string]string{}
+	}
+	pax1 := ent1.Header.PAXRecords
+	if pax1 == nil {
+		pax1 = map[string]string{}
+	}
 	var errs []error
 	if diff := cmp.Diff(ent0, ent1, cmpOpts...); diff != "" {
+		ev := Event{
+			Type:   EventTypeTarEntryMismatch,
+			Inputs: in,
+			Diff:   diff,
+			Note:   fmt.Sprintf("name %q", ent0.Header.Name),
+		}
+		if err := d.raiseEvent(ctx, node, ev, "tarentry"); err != nil {
+			errs = append(errs, err)
+		}
+	} else if diff := cmp.Diff(pax0, pax1, paxOpts...); diff != "" {
 		ev := Event{
 			Type:   EventTypeTarEntryMismatch,
 			Inputs: in,
