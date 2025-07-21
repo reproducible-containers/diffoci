@@ -80,6 +80,18 @@ func Entry(ctx context.Context, root string, hdr *tar.Header, r io.Reader) (*Ent
 		}
 	}
 
+	// If path exits we almost always just want to remove and replace it.
+	// The only exception is when it is a directory *and* the file from
+	// the layer is also a directory. Then we want to merge them (i.e.
+	// just apply the metadata from the layer).
+	if fi, err := os.Lstat(path); err == nil {
+		if !(fi.IsDir() && hdr.Typeflag == tar.TypeDir) {
+			if err := os.RemoveAll(path); err != nil {
+				return nil, err
+			}
+		}
+	}
+
 	digester := digest.SHA256.Digester()
 	hasher := digester.Hash()
 	teeR := io.TeeReader(r, hasher)
