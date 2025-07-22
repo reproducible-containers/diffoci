@@ -25,6 +25,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 	_ "unsafe"
 
@@ -86,7 +87,7 @@ func Entry(ctx context.Context, root string, hdr *tar.Header, r io.Reader) (*Ent
 	// just apply the metadata from the layer).
 	if fi, err := os.Lstat(path); err == nil {
 		if !(fi.IsDir() && hdr.Typeflag == tar.TypeDir) {
-			if err := os.RemoveAll(path); err != nil {
+			if err := removeAllUnderRoot(path, root); err != nil {
 				return nil, err
 			}
 		}
@@ -111,6 +112,35 @@ func Entry(ctx context.Context, root string, hdr *tar.Header, r io.Reader) (*Ent
 		}
 	}
 	return res, nil
+}
+
+// removeAllUnderRoot is a 'safe' version of os.RemoveAll
+// it makes sure that we don't accidentally delete files on the host system.
+// it is not strictly necessary as all paths should be safe already
+// but serves as an insurance against programming mistakes upstream.
+func removeAllUnderRoot(path, root string) error {
+	absPath, err := filepath.Abs(path)
+	if err != nil {
+		return fmt.Errorf("failed to get absolute path: %w", err)
+	}
+	absRoot, err := filepath.Abs(root)
+	if err != nil {
+		return fmt.Errorf("failed to get absolute root: %w", err)
+	}
+
+	rel, err := filepath.Rel(absRoot, absPath)
+	if err != nil {
+		return fmt.Errorf("failed to compute relative path: %w", err)
+	}
+
+	if absPath == "/" {
+		return fmt.Errorf("refusing to delete root directory '/'")
+	}
+	if strings.HasPrefix(rel, "../") || rel == ".." || filepath.IsAbs(rel) {
+		return fmt.Errorf("refusing to delete path outside root: %q", absPath)
+	}
+
+	return os.RemoveAll(path)
 }
 
 //go:linkname createTarFile github.com/containerd/containerd/archive.createTarFile
