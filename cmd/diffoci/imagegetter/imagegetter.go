@@ -157,10 +157,57 @@ func (r *readerWithEOF) Read(p []byte) (int, error) {
 	return n, err
 }
 
+// getDockerMajorVersion returns the major version of Docker CLI.
+// Returns 0 if version cannot be determined.
+func getDockerMajorVersion(ctx context.Context, docker string) int {
+	cmd := exec.Command(docker, "version", "--format", "{{.Client.Version}}")
+	output, err := cmd.Output()
+	if err != nil {
+		log.G(ctx).Debugf("Failed to get %s version: %v", docker, err)
+		return 0
+	}
+	versionStr := strings.TrimSpace(string(output))
+	// Parse major version from version string
+	parts := strings.Split(versionStr, ".")
+	if len(parts) < 1 {
+		return 0
+	}
+	var major int
+	if _, err := fmt.Sscanf(parts[0], "%d", &major); err != nil {
+		log.G(ctx).Debugf("Failed to parse %s version %q: %v", docker, versionStr, err)
+		return 0
+	}
+	return major
+}
+
 // loadDocker runs `docker save` and loads the result
 func (g *ImageGetter) loadDocker(ctx context.Context, docker, name string, plats []ocispec.Platform) (*images.Image, error) {
 	log.G(ctx).Infof("Loading image %q from %q", name, docker)
-	dockerCmd := exec.Command(docker, "save", name)
+
+	// Build docker save command with platform filtering
+	// Docker v28+ supports --platform flag to save only specific platforms
+	// References:
+	// - v28 (single platform): https://github.com/docker/cli/commit/a20eb45b26aa600cb2e942eac743b2d54445d01d
+	// - v29 (multi-platform):  https://github.com/docker/cli/commit/8993f54fc32829355d1e0f5949d3d241bcae7bff
+	args := []string{"save"}
+	if len(plats) > 0 {
+		majorVersion := getDockerMajorVersion(ctx, docker)
+		// --platform flag was introduced in Docker v28
+		if majorVersion >= 28 {
+			platStrings := make([]string, len(plats))
+			for i, p := range plats {
+				platStrings[i] = platforms.Format(p)
+			}
+			args = append(args, "--platform", strings.Join(platStrings, ","))
+		} else {
+			// TODO: Once Docker v25 reaches EOL, consider requiring Docker v28+ for docker:// images
+			// and returning an error here instead
+			log.G(ctx).Debugf("%s version %d does not support --platform flag for save (requires v28+)", docker, majorVersion)
+		}
+	}
+	args = append(args, name)
+
+	dockerCmd := exec.Command(docker, args...)
 	dockerCmd.Stderr = os.Stderr
 	r, err := dockerCmd.StdoutPipe()
 	if err != nil {

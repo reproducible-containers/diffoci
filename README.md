@@ -51,8 +51,9 @@ diffoci diff IMAGE0 IMAGE1
 ```
 
 > [!TIP]
-> Non-Linux users typically have to specify `--platform` explicitly.
+> Non-Linux users and those comparing multi-platform images from Docker typically have to specify `--platform` explicitly.
 > e.g., `diffoci diff --platform=linux/amd64 IMAGE0 IMAGE1`.
+> (Note: Platform filtering for `docker://` images requires Docker v28+)
 
 The strict mode is often too strict.
 Consider using the non-strict mode (see below).
