@@ -1130,7 +1130,7 @@ type defaultEventHandler struct {
 
 func (h *defaultEventHandler) HandleEventTreeNode(ctx context.Context, node *EventTreeNode) error {
 	ev := node.Event
-	log.G(ctx).Debugf("Event: " + ev.String())
+	log.G(ctx).Debug("Event: " + ev.String())
 	// Only print leaf events to stdout
 	if len(node.Children) > 0 {
 		return nil
@@ -1218,7 +1218,7 @@ func (h *defaultEventHandler) HandleEventTreeNode(ctx context.Context, node *Eve
 		}
 		fmt.Fprintln(h.tw, "File\t"+name+"\t"+d0+"\t"+d1)
 	default:
-		log.G(ctx).Warnf("Unknown event: " + node.Event.String())
+		log.G(ctx).Warn("Unknown event: " + node.Event.String())
 	}
 	return nil
 }
