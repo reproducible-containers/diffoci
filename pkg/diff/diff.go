@@ -382,6 +382,7 @@ func (d *differ) diffAnnotationsField(ctx context.Context, node *EventTreeNode, 
 		negligible[images.AnnotationImageName] = struct{}{} // "io.containerd.image.name": "docker.io/library/alpine:3.18"
 		negligible[ocispec.AnnotationRefName] = struct{}{}  // "org.opencontainers.image.ref.name": "3.18"
 	}
+	const distributionSourcePrefix = "containerd.io/distribution.source."
 	if len(negligible) > 0 {
 		for i := 0; i < 2; i++ {
 			if maps[i] == nil {
@@ -391,7 +392,7 @@ func (d *differ) diffAnnotationsField(ctx context.Context, node *EventTreeNode, 
 	}
 	discardFunc := func(k, _ string) bool {
 		_, ok := negligible[k]
-		return ok
+		return ok || (d.o.IgnoreImageName && strings.HasPrefix(k, distributionSourcePrefix))
 	}
 	if diff := cmp.Diff(maps[0], maps[1], cmpopts.IgnoreMapEntries(discardFunc)); diff != "" {
 		ev := Event{
