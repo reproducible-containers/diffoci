@@ -97,7 +97,7 @@ The default namespace is `default`.
 
 To explicitly enable containerd:
 ```bash
-diffoci --backend=containerd --containerd-socket=SOCKET --containerd-namespace=NAMESPACE
+diffoci --backend=containerd --containerd-address=ADDRESS --containerd-namespace=NAMESPACE
 ```
 
 To explicitly disable containerd:
