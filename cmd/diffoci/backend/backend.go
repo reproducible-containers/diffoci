@@ -3,9 +3,9 @@ package backend
 import (
 	"context"
 
-	"github.com/containerd/containerd/content"
-	"github.com/containerd/containerd/images"
-	"github.com/containerd/containerd/pkg/transfer"
+	"github.com/containerd/containerd/v2/core/content"
+	"github.com/containerd/containerd/v2/core/images"
+	"github.com/containerd/containerd/v2/core/transfer"
 )
 
 type Backend interface {

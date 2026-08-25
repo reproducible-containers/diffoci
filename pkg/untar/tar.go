@@ -1,4 +1,4 @@
-// Forked from https://github.com/containerd/containerd/blob/v1.7.3/archive/tar.go .
+// Forked from https://github.com/containerd/containerd/blob/v2.3.4/pkg/archive/tar.go .
 // This fork ignores permission errors.
 /*
    Copyright The containerd Authors.
@@ -29,6 +29,9 @@ import (
 	"time"
 	_ "unsafe"
 
+	// Import the archive package explicitly to ensure that the go:linkname
+	// targets below are always compiled into binaries that link this package.
+	_ "github.com/containerd/containerd/v2/pkg/archive"
 	"github.com/containerd/continuity/fs"
 	"github.com/containerd/log"
 	"github.com/opencontainers/go-digest"
@@ -42,7 +45,7 @@ type EntryResult struct {
 
 // Entry untars a tar entry.
 //
-// Entry contains a portion from https://github.com/containerd/containerd/blob/v1.7.3/archive/tar.go#L159-L327 .
+// Entry contains a portion from https://github.com/containerd/containerd/blob/v2.3.4/pkg/archive/tar.go#L163-L328 .
 func Entry(ctx context.Context, root string, hdr *tar.Header, r io.Reader) (*EntryResult, error) {
 	if err := os.MkdirAll(root, 0755); err != nil {
 		return nil, err
@@ -143,17 +146,17 @@ func removeAllUnderRoot(path, root string) error {
 	return os.RemoveAll(path)
 }
 
-//go:linkname createTarFile github.com/containerd/containerd/archive.createTarFile
+//go:linkname createTarFile github.com/containerd/containerd/v2/pkg/archive.createTarFile
 func createTarFile(ctx context.Context, path, extractDir string, hdr *tar.Header, reader io.Reader, noSameOwner bool) error
 
-//go:linkname chtimes github.com/containerd/containerd/archive.chtimes
+//go:linkname chtimes github.com/containerd/containerd/v2/pkg/archive.chtimes
 func chtimes(path string, atime, mtime time.Time) error
 
-//go:linkname mkparent github.com/containerd/containerd/archive.mkparent
+//go:linkname mkparent github.com/containerd/containerd/v2/pkg/archive.mkparent
 func mkparent(ctx context.Context, path, root string, parents []string) error
 
-//go:linkname boundTime github.com/containerd/containerd/archive.boundTime
+//go:linkname boundTime github.com/containerd/containerd/v2/pkg/archive.boundTime
 func boundTime(t time.Time) time.Time
 
-//go:linkname latestTime github.com/containerd/containerd/archive.latestTime
+//go:linkname latestTime github.com/containerd/containerd/v2/pkg/archive.latestTime
 func latestTime(t1, t2 time.Time) time.Time
