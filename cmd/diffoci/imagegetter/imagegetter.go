@@ -15,7 +15,6 @@ import (
 	"github.com/containerd/containerd/images"
 	"github.com/containerd/containerd/pkg/transfer"
 	"github.com/containerd/containerd/pkg/transfer/archive"
-	"github.com/containerd/containerd/pkg/transfer/image"
 	transimage "github.com/containerd/containerd/pkg/transfer/image"
 	"github.com/containerd/containerd/pkg/transfer/registry"
 	"github.com/containerd/errdefs"
@@ -44,9 +43,8 @@ func Load(ctx context.Context, stdout io.Writer, transferrer transfer.Transferre
 
 	sOpts := []transimage.StoreOpt{
 		transimage.WithPlatforms(plats...),
-		image.WithPlatforms(plats...),
-		image.WithAllMetadata,
-		image.WithNamedPrefix("unused", true),
+		transimage.WithAllMetadata,
+		transimage.WithNamedPrefix("unused", true),
 	}
 	is := transimage.NewStore(foreknownRef, sOpts...)
 
