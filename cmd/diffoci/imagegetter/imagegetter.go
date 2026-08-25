@@ -9,14 +9,14 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/containerd/containerd/archive/compression"
-	ctrimages "github.com/containerd/containerd/cmd/ctr/commands/images"
-	"github.com/containerd/containerd/content"
-	"github.com/containerd/containerd/images"
-	"github.com/containerd/containerd/pkg/transfer"
-	"github.com/containerd/containerd/pkg/transfer/archive"
-	transimage "github.com/containerd/containerd/pkg/transfer/image"
-	"github.com/containerd/containerd/pkg/transfer/registry"
+	ctrimages "github.com/containerd/containerd/v2/cmd/ctr/commands/images"
+	"github.com/containerd/containerd/v2/core/content"
+	"github.com/containerd/containerd/v2/core/images"
+	"github.com/containerd/containerd/v2/core/transfer"
+	"github.com/containerd/containerd/v2/core/transfer/archive"
+	transimage "github.com/containerd/containerd/v2/core/transfer/image"
+	"github.com/containerd/containerd/v2/core/transfer/registry"
+	"github.com/containerd/containerd/v2/pkg/archive/compression"
 	"github.com/containerd/errdefs"
 	"github.com/containerd/log"
 	"github.com/containerd/platforms"
@@ -58,7 +58,10 @@ func Load(ctx context.Context, stdout io.Writer, transferrer transfer.Transferre
 }
 
 func Pull(ctx context.Context, stdout io.Writer, transferrer transfer.Transferrer, credHelper registry.CredentialHelper, ref string, plats []ocispec.Platform) error {
-	reg := registry.NewOCIRegistry(ref, nil, credHelper)
+	reg, err := registry.NewOCIRegistry(ctx, ref, registry.WithCredentials(credHelper))
+	if err != nil {
+		return fmt.Errorf("failed to create OCI registry client for %q: %w", ref, err)
+	}
 
 	sOpts := []transimage.StoreOpt{
 		transimage.WithPlatforms(plats...),

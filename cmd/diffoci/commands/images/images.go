@@ -5,7 +5,7 @@ import (
 	"io"
 	"text/tabwriter"
 
-	"github.com/containerd/containerd/images"
+	"github.com/containerd/containerd/v2/core/images"
 	"github.com/containerd/log"
 	"github.com/containerd/platforms"
 	refdocker "github.com/distribution/reference"

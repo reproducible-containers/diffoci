@@ -8,13 +8,13 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/containerd/containerd/content"
-	contentlocal "github.com/containerd/containerd/content/local"
-	"github.com/containerd/containerd/images"
-	"github.com/containerd/containerd/metadata"
-	"github.com/containerd/containerd/namespaces"
-	"github.com/containerd/containerd/pkg/transfer"
-	transferlocal "github.com/containerd/containerd/pkg/transfer/local"
+	"github.com/containerd/containerd/v2/core/content"
+	"github.com/containerd/containerd/v2/core/images"
+	"github.com/containerd/containerd/v2/core/metadata"
+	"github.com/containerd/containerd/v2/core/transfer"
+	transferlocal "github.com/containerd/containerd/v2/core/transfer/local"
+	"github.com/containerd/containerd/v2/pkg/namespaces"
+	contentlocal "github.com/containerd/containerd/v2/plugins/content/local"
 	"github.com/containerd/log"
 	"github.com/opencontainers/go-digest"
 	"github.com/reproducible-containers/diffoci/cmd/diffoci/backend"
@@ -72,10 +72,12 @@ func New(cmd *cobra.Command) (backend.Backend, error) {
 	b.db = metadata.NewDB(dbRaw, b.contentStore, nil)
 	b.imageStore = metadata.NewImageStore(b.db)
 	lm := metadata.NewLeaseManager(b.db)
-	b.transferrer = transferlocal.NewTransferService(lm,
+	b.transferrer = transferlocal.NewTransferService(
 		b.contentStore,
 		b.imageStore,
-		&transferlocal.TransferConfig{},
+		transferlocal.TransferConfig{
+			Leases: lm,
+		},
 	)
 	return b, nil
 }

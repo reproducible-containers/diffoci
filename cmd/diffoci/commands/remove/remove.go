@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/containerd/containerd/images"
+	"github.com/containerd/containerd/v2/core/images"
 	"github.com/containerd/log"
 	refdocker "github.com/distribution/reference"
 	"github.com/reproducible-containers/diffoci/cmd/diffoci/backend/backendmanager"

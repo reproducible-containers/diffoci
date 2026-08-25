@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/containerd/containerd/pkg/transfer/registry"
+	"github.com/containerd/containerd/v2/core/transfer/registry"
 	dockerconfig "github.com/docker/cli/cli/config"
 	dockerconfigfile "github.com/docker/cli/cli/config/configfile"
 	dockerconfigtypes "github.com/docker/cli/cli/config/types"

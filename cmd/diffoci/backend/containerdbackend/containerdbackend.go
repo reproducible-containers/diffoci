@@ -9,9 +9,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/containerd/containerd"
-	"github.com/containerd/containerd/defaults"
-	"github.com/containerd/containerd/namespaces"
+	containerd "github.com/containerd/containerd/v2/client"
+	"github.com/containerd/containerd/v2/defaults"
+	"github.com/containerd/containerd/v2/pkg/namespaces"
 	"github.com/containerd/log"
 	"github.com/reproducible-containers/diffoci/cmd/diffoci/backend"
 	"github.com/reproducible-containers/diffoci/pkg/envutil"
@@ -76,7 +76,7 @@ func newBackend(ctx context.Context, addr, ns string) (backend.Backend, error) {
 	if err := unix.Access(addr, unix.R_OK); err != nil {
 		return nil, fmt.Errorf("failed to access containerd socket %q: %w", addr, err)
 	}
-	opts := []containerd.ClientOpt{containerd.WithDefaultNamespace(ns)}
+	opts := []containerd.Opt{containerd.WithDefaultNamespace(ns)}
 	client, err := containerd.New(addr, opts...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create containerd client: %w", err)
@@ -85,7 +85,7 @@ func newBackend(ctx context.Context, addr, ns string) (backend.Backend, error) {
 		pluginType = "io.containerd.grpc.v1"
 		pluginID   = "transfer"
 	)
-	plugins, err := client.IntrospectionService().Plugins(ctx, []string{fmt.Sprintf("type==%q,id==%q", pluginType, pluginID)})
+	plugins, err := client.IntrospectionService().Plugins(ctx, fmt.Sprintf("type==%q,id==%q", pluginType, pluginID))
 	if err != nil {
 		return nil, fmt.Errorf("failed to introspect containerd plugins: %w", err)
 	}
