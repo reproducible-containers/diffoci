@@ -1,0 +1,21 @@
+version: "2"
+linters:
+  settings:
+    staticcheck:
+      # Keep the golangci-lint default checks, minus QF* (quickfix):
+      # those are refactoring suggestions, not correctness issues, and are
+      # disabled in staticcheck's own default configuration too.
+      checks:
+        - all
+        - -ST1000
+        - -ST1003
+        - -ST1016
+        - -ST1020
+        - -ST1021
+        - -ST1022
+        - -QF*
+  exclusions:
+    presets:
+      # Restore the golangci-lint v1 default exclusions for unchecked errors
+      # of functions like fmt.Fprintln.
+      - std-error-handling
