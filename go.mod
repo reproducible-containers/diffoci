@@ -9,7 +9,7 @@ require (
 	github.com/containerd/log v0.2.0
 	github.com/containerd/platforms v1.0.0-rc.5
 	github.com/distribution/reference v0.6.0
-	github.com/docker/cli v29.7.2+incompatible
+	github.com/docker/cli v29.8.2+incompatible
 	github.com/google/go-cmp v0.7.0
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/opencontainers/image-spec v1.1.1
