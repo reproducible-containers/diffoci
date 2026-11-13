@@ -699,17 +699,13 @@ func (d *differ) loadLayer(ctx context.Context, node *EventTreeNode, inputIdx in
 			hdr.Format = tar.FormatUnknown
 		}
 		if d.o.CanonicalPaths {
-			hdr.Name = strings.TrimPrefix(hdr.Name, "/")
-			hdr.Name = strings.TrimPrefix(hdr.Name, "./")
-			hdr.Linkname = strings.TrimPrefix(hdr.Linkname, "/")
-			hdr.Linkname = strings.TrimPrefix(hdr.Linkname, "./")
+			hdr.Name = canonicalPath(hdr.Name)
+			hdr.Linkname = canonicalPath(hdr.Linkname)
 			if path, ok := hdr.PAXRecords["path"]; ok {
-				path = strings.TrimPrefix(path, "/")
-				hdr.PAXRecords["path"] = strings.TrimPrefix(path, "./")
+				hdr.PAXRecords["path"] = canonicalPath(path)
 			}
 			if path, ok := hdr.PAXRecords["linkpath"]; ok {
-				path = strings.TrimPrefix(path, "/")
-				hdr.PAXRecords["linkpath"] = strings.TrimPrefix(path, "./")
+				hdr.PAXRecords["linkpath"] = canonicalPath(path)
 			}
 		}
 		if os.Geteuid() != 0 && runtime.GOOS == "linux" {
@@ -761,6 +757,19 @@ func (d *differ) loadLayer(ctx context.Context, node *EventTreeNode, inputIdx in
 	}
 
 	return res, nil
+}
+
+// An empty path stays empty, as Linkname is empty for anything but links.
+func canonicalPath(p string) string {
+	if p == "" {
+		return p
+	}
+	p = strings.TrimPrefix(p, "/")
+	p = strings.TrimPrefix(p, "./")
+	if p == "" {
+		return "."
+	}
+	return p
 }
 
 func (d *differ) diffLayerWithTarReader(ctx context.Context, node *EventTreeNode, in [2]EventInput, tr0, tr1 tarReader) error {
