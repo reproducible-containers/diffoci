@@ -44,6 +44,7 @@ type IgnoranceOptions struct {
 
 type Options struct {
 	IgnoranceOptions
+	IgnorePaths []string
 	EventHandler
 	ReportFile string
 	ReportDir  string
@@ -51,7 +52,7 @@ type Options struct {
 }
 
 func (o *Options) digestMayChange() bool {
-	return o.IgnoranceOptions != IgnoranceOptions{}
+	return o.IgnoranceOptions != IgnoranceOptions{} || len(o.IgnorePaths) > 0
 }
 
 func (o *Options) sizeMayChange() bool {
@@ -690,10 +691,13 @@ func (d *differ) loadLayer(ctx context.Context, node *EventTreeNode, inputIdx in
 		entriesByName: make(map[string][]*TarEntry),
 		finalizers:    nil,
 	}
-	for i := 0; ; i++ {
+	for {
 		hdr, err := tr.Next()
 		if errors.Is(err, io.EOF) {
 			break
+		}
+		if isIgnoredPath(d.o.IgnorePaths, hdr.Name) {
+			continue
 		}
 		if d.o.IgnoreTarFormat {
 			hdr.Format = tar.FormatUnknown
@@ -727,11 +731,11 @@ func (d *differ) loadLayer(ctx context.Context, node *EventTreeNode, inputIdx in
 				}
 			}
 		}
-		res.entries++
 		ent := &TarEntry{
-			Index:  i,
+			Index:  res.entries,
 			Header: hdr,
 		}
+		res.entries++
 		if repDir := d.o.ReportDir; repDir != "" {
 			dirx := filepath.Clean(node.Context) // "/manifests-0/layers-0"
 			dir := filepath.Join(repDir, ReportDirInput0, dirx)
@@ -761,6 +765,18 @@ func (d *differ) loadLayer(ctx context.Context, node *EventTreeNode, inputIdx in
 	}
 
 	return res, nil
+}
+
+func isIgnoredPath(ignorePaths []string, name string) bool {
+	name = strings.TrimPrefix(strings.TrimPrefix(name, "/"), "./")
+	for _, p := range ignorePaths {
+		p = strings.TrimPrefix(strings.TrimPrefix(p, "/"), "./")
+		p = strings.TrimSuffix(p, "/")
+		if name == p || strings.HasPrefix(name, p+"/") {
+			return true
+		}
+	}
+	return false
 }
 
 func (d *differ) diffLayerWithTarReader(ctx context.Context, node *EventTreeNode, in [2]EventInput, tr0, tr1 tarReader) error {
