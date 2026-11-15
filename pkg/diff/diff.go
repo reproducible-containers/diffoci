@@ -10,7 +10,6 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"runtime"
 	"slices"
 	"sort"
 	"strconv"
@@ -711,21 +710,6 @@ func (d *differ) loadLayer(ctx context.Context, node *EventTreeNode, inputIdx in
 			if path, ok := hdr.PAXRecords["linkpath"]; ok {
 				path = strings.TrimPrefix(path, "/")
 				hdr.PAXRecords["linkpath"] = strings.TrimPrefix(path, "./")
-			}
-		}
-		if os.Geteuid() != 0 && runtime.GOOS == "linux" {
-			//nolint:staticcheck // SA1019: hdr.Xattrs has been deprecated since Go 1.10: Use PAXRecords instead.
-			for k := range hdr.Xattrs {
-				if strings.HasPrefix(k, "security.") {
-					log.G(ctx).Debugf("Ignoring xattr %q", k)
-					delete(hdr.Xattrs, k)
-				}
-			}
-			for k := range hdr.PAXRecords {
-				if strings.HasPrefix(k, "SCHILY.xattr.security.") {
-					log.G(ctx).Debugf("Ignoring PAX record %q", k)
-					delete(hdr.PAXRecords, k)
-				}
 			}
 		}
 		res.entries++
