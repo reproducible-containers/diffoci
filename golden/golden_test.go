@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/containerd/containerd/v2/core/content"
+	"github.com/containerd/containerd/v2/core/images"
 	"github.com/containerd/containerd/v2/pkg/archive/compression"
 	contentlocal "github.com/containerd/containerd/v2/plugins/content/local"
 	"github.com/containerd/platforms"
@@ -28,9 +29,12 @@ import (
 	testbuildkitvslegacy "github.com/reproducible-containers/diffoci/golden/testdata/test_buildkit_vs_legacy"
 	testbusyboxlinks "github.com/reproducible-containers/diffoci/golden/testdata/test_busybox_links"
 	testchown "github.com/reproducible-containers/diffoci/golden/testdata/test_chown"
+	testdockermanifestlist "github.com/reproducible-containers/diffoci/golden/testdata/test_docker_manifest_list"
+	testdockermediatypes "github.com/reproducible-containers/diffoci/golden/testdata/test_docker_media_types"
 	testdotprefix "github.com/reproducible-containers/diffoci/golden/testdata/test_dot_prefix"
 	testgnutar "github.com/reproducible-containers/diffoci/golden/testdata/test_gnu_tar"
 	testidentical "github.com/reproducible-containers/diffoci/golden/testdata/test_identical"
+	testlongpath "github.com/reproducible-containers/diffoci/golden/testdata/test_long_path"
 	testmultiplatform "github.com/reproducible-containers/diffoci/golden/testdata/test_multiplatform"
 	testrebuild "github.com/reproducible-containers/diffoci/golden/testdata/test_rebuild"
 	testrecompressed "github.com/reproducible-containers/diffoci/golden/testdata/test_recompressed"
@@ -38,7 +42,9 @@ import (
 	testrootentry "github.com/reproducible-containers/diffoci/golden/testdata/test_root_entry"
 	testsingleplatformsave "github.com/reproducible-containers/diffoci/golden/testdata/test_single_platform_save"
 	testsquash "github.com/reproducible-containers/diffoci/golden/testdata/test_squash"
+	testsubsecondmtime "github.com/reproducible-containers/diffoci/golden/testdata/test_subsecond_mtime"
 	testswappedinputs "github.com/reproducible-containers/diffoci/golden/testdata/test_swapped_inputs"
+	testxattr "github.com/reproducible-containers/diffoci/golden/testdata/test_xattr"
 	testzstd "github.com/reproducible-containers/diffoci/golden/testdata/test_zstd"
 	"github.com/reproducible-containers/diffoci/golden/types"
 	"github.com/reproducible-containers/diffoci/pkg/diff"
@@ -49,9 +55,12 @@ var allTests = []types.GoldenTests{
 	testbuildkitvslegacy.Tests,
 	testbusyboxlinks.Tests,
 	testchown.Tests,
+	testdockermanifestlist.Tests,
+	testdockermediatypes.Tests,
 	testdotprefix.Tests,
 	testgnutar.Tests,
 	testidentical.Tests,
+	testlongpath.Tests,
 	testmultiplatform.Tests,
 	testrebuild.Tests,
 	testrecompressed.Tests,
@@ -60,7 +69,9 @@ var allTests = []types.GoldenTests{
 	testrootentry.Tests,
 	testsingleplatformsave.Tests,
 	testsquash.Tests,
+	testsubsecondmtime.Tests,
 	testswappedinputs.Tests,
+	testxattr.Tests,
 }
 
 var update = flag.Bool("update", false, "Whether to update expected output instead of testing it")
@@ -169,8 +180,38 @@ func runDiff(ctx context.Context, t *testing.T, cs content.Provider, descs [2]oc
 	return stdout.String()
 }
 
+type mediaTypes struct {
+	index, manifest, config string
+	layer                   map[compression.Compression]string
+}
+
+var ociMediaTypes = mediaTypes{
+	index:    ocispec.MediaTypeImageIndex,
+	manifest: ocispec.MediaTypeImageManifest,
+	config:   ocispec.MediaTypeImageConfig,
+	layer: map[compression.Compression]string{
+		compression.Uncompressed: ocispec.MediaTypeImageLayer,
+		compression.Gzip:         ocispec.MediaTypeImageLayerGzip,
+		compression.Zstd:         ocispec.MediaTypeImageLayerZstd,
+	},
+}
+
+var dockerMediaTypes = mediaTypes{
+	index:    images.MediaTypeDockerSchema2ManifestList,
+	manifest: images.MediaTypeDockerSchema2Manifest,
+	config:   images.MediaTypeDockerSchema2Config,
+	layer: map[compression.Compression]string{
+		compression.Uncompressed: images.MediaTypeDockerSchema2Layer,
+		compression.Gzip:         images.MediaTypeDockerSchema2LayerGzip,
+	},
+}
+
 func writeImage(ctx context.Context, t *testing.T, cs content.Ingester, img types.Image) ocispec.Descriptor {
 	t.Helper()
+	mt := ociMediaTypes
+	if img.Docker {
+		mt = dockerMediaTypes
+	}
 	if len(img.Manifests) > 0 {
 		var manifests []ocispec.Descriptor
 		for _, m := range img.Manifests {
@@ -181,9 +222,9 @@ func writeImage(ctx context.Context, t *testing.T, cs content.Ingester, img type
 			desc.Platform = &m.Config.Platform
 			manifests = append(manifests, desc)
 		}
-		return writeJSON(ctx, t, cs, ocispec.MediaTypeImageIndex, ocispec.Index{
+		return writeJSON(ctx, t, cs, mt.index, ocispec.Index{
 			Versioned:   specs.Versioned{SchemaVersion: 2},
-			MediaType:   ocispec.MediaTypeImageIndex,
+			MediaType:   mt.index,
 			Manifests:   manifests,
 			Annotations: img.Annotations,
 		})
@@ -222,17 +263,12 @@ func writeImage(ctx context.Context, t *testing.T, cs content.Ingester, img type
 		if err := zw.Close(); err != nil {
 			t.Fatal(err)
 		}
-		mediaType := map[compression.Compression]string{
-			compression.Uncompressed: ocispec.MediaTypeImageLayer,
-			compression.Gzip:         ocispec.MediaTypeImageLayerGzip,
-			compression.Zstd:         ocispec.MediaTypeImageLayerZstd,
-		}[img.Compression]
-		layers = append(layers, writeBlob(ctx, t, cs, mediaType, compressed.Bytes()))
+		layers = append(layers, writeBlob(ctx, t, cs, mt.layer[img.Compression], compressed.Bytes()))
 	}
-	return writeJSON(ctx, t, cs, ocispec.MediaTypeImageManifest, ocispec.Manifest{
+	return writeJSON(ctx, t, cs, mt.manifest, ocispec.Manifest{
 		Versioned:   specs.Versioned{SchemaVersion: 2},
-		MediaType:   ocispec.MediaTypeImageManifest,
-		Config:      writeJSON(ctx, t, cs, ocispec.MediaTypeImageConfig, config),
+		MediaType:   mt.manifest,
+		Config:      writeJSON(ctx, t, cs, mt.config, config),
 		Layers:      layers,
 		Annotations: img.Annotations,
 	})

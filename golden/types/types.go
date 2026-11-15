@@ -22,6 +22,7 @@ type GoldenTest struct {
 type Image struct {
 	Layers      [][]Entry
 	Compression compression.Compression
+	Docker      bool
 	Config      ocispec.Image
 	Annotations map[string]string
 	Manifests   []Image
