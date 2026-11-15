@@ -1,0 +1,33 @@
+$ diffoci diff --ignore-file-timestamps --verbose
+Event: "ConfigBlobMismatch"
+  v1.Image{
+- 	Created:  &s"1970-01-01 00:00:00 +0000 UTC",
++ 	Created:  &s"1970-01-01 01:00:00 +0000 UTC",
+  	Author:   "",
+  	Platform: {Architecture: "amd64", OS: "linux"},
+  	... // 1 ignored and 1 identical fields
+  	History: []v1.History{
+  		{
+- 			Created:   &s"1970-01-01 00:00:00 +0000 UTC",
++ 			Created:   &s"1970-01-01 01:00:00 +0000 UTC",
+  			CreatedBy: "COPY hostname /etc/hostname # buildkit",
+  			Author:    "",
+  			... // 2 identical fields
+  		},
+  	},
+  }
+
+Event: "ManifestBlobMismatch" (field "Config")
+  v1.Descriptor{
+  	MediaType: "application/vnd.oci.image.config.v1+json",
+  	Digest: strings.Join({
+  		"sha256:",
+- 		"213b811f69d1acd47c002b7c475b80fa69f84ab4a85e6092bc98e445e1b96cbf",
++ 		"f22f0773be9a3020191a40b7a40b0c260049c8ad942a5a078ea777b777581441",
+  	}, ""),
+  	Size: 297,
+  	URLs: nil,
+  	... // 4 identical fields
+  }
+
+exit 1

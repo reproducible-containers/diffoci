@@ -1,0 +1,33 @@
+$ diffoci diff --ignore-file-mode-redundant-bits --verbose
+Event: "ConfigBlobMismatch"
+  v1.Image{
+  	... // 1 ignored and 4 identical fields
+  	History: []v1.History{
+  		{
+  			Created:    nil,
+  			CreatedBy:  "COPY app /app # buildkit",
+  			Author:     "",
+- 			Comment:    "buildkit.dockerfile.v0",
++ 			Comment:    "",
+  			EmptyLayer: false,
+  		},
+  	},
+  }
+
+Event: "ManifestBlobMismatch" (field "Config")
+  v1.Descriptor{
+  	MediaType: "application/vnd.oci.image.config.v1+json",
+  	Digest: strings.Join({
+  		"sha256:",
+- 		"862797f55a83530183b88b1bf13348dddb46b25a48b811b4ef19e2654a060f5",
++ 		"61002762c6d2ffcd49c635d61443f03d328fd2fc6963501c746df9fd74d501a",
+  		"6",
+  	}, ""),
+- 	Size:        252,
++ 	Size:        217,
+  	URLs:        nil,
+  	Annotations: nil,
+  	... // 3 identical fields
+  }
+
+exit 1

@@ -25,6 +25,7 @@ var Tests = types.GoldenTests{
 	Tests: []types.GoldenTest{
 		{Args: nil, Output: "default"},
 		{Args: []string{"--ignore-file-mode-redundant-bits"}, Output: "ignore_file_mode_redundant_bits"},
+		{Args: []string{"--ignore-file-mode-redundant-bits", "--verbose"}, Output: "ignore_file_mode_redundant_bits_verbose"},
 		{Args: []string{"--ignore-history"}, Output: "ignore_history"},
 		{Args: []string{"--semantic"}, Output: "semantic"},
 	},

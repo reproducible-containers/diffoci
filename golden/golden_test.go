@@ -125,9 +125,6 @@ func runDiff(ctx context.Context, t *testing.T, cs content.Provider, descs [2]oc
 	if err := cmd.PreRunE(cmd, nil); err != nil {
 		t.Fatal(err)
 	}
-	if flags.Changed("verbose") {
-		t.Fatal("--verbose output is randomized by go-cmp")
-	}
 	plats, err := flagutil.ParsePlatformFlags(flags)
 	if err != nil {
 		t.Fatal(err)
@@ -138,7 +135,11 @@ func runDiff(ctx context.Context, t *testing.T, cs content.Provider, descs [2]oc
 	}
 	var stdout bytes.Buffer
 	fmt.Fprintln(&stdout, strings.Join(append([]string{"$ diffoci diff"}, args...), " "))
-	options.EventHandler = diff.NewDefaultEventHandler(&stdout)
+	if options.EventHandler == diff.VerboseEventHandler {
+		options.EventHandler = diff.NewVerboseEventHandler(&stdout)
+	} else {
+		options.EventHandler = diff.NewDefaultEventHandler(&stdout)
+	}
 	var exitCode int
 	report, err := diff.Diff(ctx, cs, descs, platforms.Any(plats...), &options)
 	if report != nil && len(report.Children) > 0 {
@@ -159,7 +160,8 @@ func runDiff(ctx context.Context, t *testing.T, cs content.Provider, descs [2]oc
 			t.Fatal(err)
 		}
 	}
-	return stdout.String()
+	// go-cmp randomly indents its diffs with U+00A0 instead of spaces
+	return strings.ReplaceAll(stdout.String(), " ", " ")
 }
 
 func writeImage(ctx context.Context, t *testing.T, cs content.Ingester, img types.Image) ocispec.Descriptor {
