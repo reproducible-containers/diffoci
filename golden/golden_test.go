@@ -125,6 +125,9 @@ func runDiff(ctx context.Context, t *testing.T, cs content.Provider, descs [2]oc
 	if err := cmd.PreRunE(cmd, nil); err != nil {
 		t.Fatal(err)
 	}
+	if flags.Changed("verbose") {
+		t.Fatal("--verbose output is randomized by go-cmp")
+	}
 	plats, err := flagutil.ParsePlatformFlags(flags)
 	if err != nil {
 		t.Fatal(err)
@@ -164,6 +167,9 @@ func writeImage(ctx context.Context, t *testing.T, cs content.Ingester, img type
 	if len(img.Manifests) > 0 {
 		var manifests []ocispec.Descriptor
 		for _, m := range img.Manifests {
+			if m.Config.Architecture == "" {
+				m.Config.Platform = defaultPlatform
+			}
 			desc := writeImage(ctx, t, cs, m)
 			desc.Platform = &m.Config.Platform
 			manifests = append(manifests, desc)
