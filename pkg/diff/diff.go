@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"os"
 	"path"
 	"path/filepath"
@@ -799,8 +800,8 @@ func (d *differ) diffLayerWithTarReader(ctx context.Context, node *EventTreeNode
 		},
 	}
 	var dirsToBeRemovedIfEmpty []string
-	for name, ents0 := range l0.entriesByName {
-		ents1 := l1.entriesByName[name]
+	for _, name := range slices.Sorted(maps.Keys(l0.entriesByName)) {
+		ents0, ents1 := l0.entriesByName[name], l1.entriesByName[name]
 		if len(ents0) != len(ents1) {
 			ev := Event{
 				Type:   EventTypeLayerBlobMismatch,
@@ -819,8 +820,8 @@ func (d *differ) diffLayerWithTarReader(ctx context.Context, node *EventTreeNode
 		}
 	}
 	// Iterate again to find entries that only appear in input 1
-	for name, ents1 := range l1.entriesByName {
-		ents0 := l0.entriesByName[name]
+	for _, name := range slices.Sorted(maps.Keys(l1.entriesByName)) {
+		ents0, ents1 := l0.entriesByName[name], l1.entriesByName[name]
 		if len(ents0) != len(ents1) {
 			ev := Event{
 				Type:   EventTypeLayerBlobMismatch,
