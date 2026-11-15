@@ -32,6 +32,7 @@ import (
 	testdockermanifestlist "github.com/reproducible-containers/diffoci/golden/testdata/test_docker_manifest_list"
 	testdockermediatypes "github.com/reproducible-containers/diffoci/golden/testdata/test_docker_media_types"
 	testdotprefix "github.com/reproducible-containers/diffoci/golden/testdata/test_dot_prefix"
+	testfilecapabilities "github.com/reproducible-containers/diffoci/golden/testdata/test_file_capabilities"
 	testgnutar "github.com/reproducible-containers/diffoci/golden/testdata/test_gnu_tar"
 	testidentical "github.com/reproducible-containers/diffoci/golden/testdata/test_identical"
 	testlongpath "github.com/reproducible-containers/diffoci/golden/testdata/test_long_path"
@@ -58,6 +59,7 @@ var allTests = []types.GoldenTests{
 	testdockermanifestlist.Tests,
 	testdockermediatypes.Tests,
 	testdotprefix.Tests,
+	testfilecapabilities.Tests,
 	testgnutar.Tests,
 	testidentical.Tests,
 	testlongpath.Tests,
