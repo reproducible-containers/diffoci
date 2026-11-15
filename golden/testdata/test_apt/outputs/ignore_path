@@ -1,0 +1,2 @@
+$ diffoci diff --semantic --ignore-path=/var/log/dpkg.log
+exit 0

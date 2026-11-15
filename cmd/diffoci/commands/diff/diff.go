@@ -1,6 +1,7 @@
 package diff
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -16,6 +17,7 @@ import (
 	"github.com/reproducible-containers/diffoci/pkg/localpathutil"
 	"github.com/reproducible-containers/diffoci/pkg/platformutil"
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 )
 
 const Example = `  # Basic
@@ -83,6 +85,7 @@ func NewCommand() *cobra.Command {
 	flags.Bool("ignore-image-name", false, "Ignore image name annotation")
 	flags.Bool("ignore-tar-format", false, "Ignore tar format")
 	flags.Bool("treat-canonical-paths-equal", false, "Treat leading `./` `/` `` in file paths as canonical")
+	flags.StringSlice("ignore-path", nil, "Ignore a file or directory including its contents (can be repeated)")
 	flags.Bool("semantic", false, "[Recommended] Alias for --ignore-*=true --treat-canonical-paths-equal")
 
 	flags.Bool("verbose", false, "Verbose output")
@@ -93,21 +96,8 @@ func NewCommand() *cobra.Command {
 	return cmd
 }
 
-func action(cmd *cobra.Command, args []string) error {
-	backend, err := backendmanager.NewBackend(cmd)
-	if err != nil {
-		return err
-	}
-	ctx := backend.Context(cmd.Context())
-	flags := cmd.Flags()
-	plats, err := flagutil.ParsePlatformFlags(flags)
-	if err != nil {
-		return err
-	}
-	log.G(ctx).Infof("Target platforms: %v", platformutil.FormatSlice(plats))
-	platMC := platforms.Any(plats...)
-
-	var options diff.Options
+func ParseOptions(ctx context.Context, flags *pflag.FlagSet, options *diff.Options) error {
+	var err error
 	options.IgnoreHistory, err = flags.GetBool("ignore-history")
 	if err != nil {
 		return err
@@ -137,6 +127,10 @@ func action(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	options.CanonicalPaths, err = flags.GetBool("treat-canonical-paths-equal")
+	if err != nil {
+		return err
+	}
+	options.IgnorePaths, err = flags.GetStringSlice("ignore-path")
 	if err != nil {
 		return err
 	}
@@ -173,6 +167,27 @@ func action(cmd *cobra.Command, args []string) error {
 
 	options.MaxScale, err = flags.GetFloat64("max-scale")
 	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func action(cmd *cobra.Command, args []string) error {
+	backend, err := backendmanager.NewBackend(cmd)
+	if err != nil {
+		return err
+	}
+	ctx := backend.Context(cmd.Context())
+	flags := cmd.Flags()
+	plats, err := flagutil.ParsePlatformFlags(flags)
+	if err != nil {
+		return err
+	}
+	log.G(ctx).Infof("Target platforms: %v", platformutil.FormatSlice(plats))
+	platMC := platforms.Any(plats...)
+
+	var options diff.Options
+	if err := ParseOptions(ctx, flags, &options); err != nil {
 		return err
 	}
 
