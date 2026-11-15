@@ -1,0 +1,2 @@
+$ diffoci diff --platform=linux/amd64 --semantic
+exit 0

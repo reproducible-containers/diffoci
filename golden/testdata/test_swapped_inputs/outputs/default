@@ -1,0 +1,5 @@
+$ diffoci diff
+TYPE    NAME                                          INPUT-0                                       INPUT-1
+Desc    application/vnd.oci.image.manifest.v1+json    application/vnd.oci.image.manifest.v1+json    application/vnd.oci.image.index.v1+json
+error: comparing single-platform image vs multi-platform image is not supported (Hint: swap input 0 and 1)
+exit 2

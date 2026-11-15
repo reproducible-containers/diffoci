@@ -1,0 +1,38 @@
+$ diffoci diff --platform=linux/amd64 --verbose
+Event: "DescriptorMismatch"
+  &v1.Descriptor{
+  	MediaType: "application/vnd.oci.image.index.v1+json",
+  	Digest: strings.Join({
+  		"sha256:",
+- 		"4632884b36a2d499d911e27a7d1bc7522c6c10d994dd80c7b0103108b6876cc8",
++ 		"7cdaa6a6c7f1b52790c33b912096478f43d5ba073ffd93a3331015a436c18816",
+  	}, ""),
+  	Size: 491,
+  	URLs: nil,
+  	... // 1 ignored and 3 identical fields
+  }
+
+Event: "IndexBlobMismatch"
+  v1.Index{
+  	Versioned:    {SchemaVersion: 2},
+  	MediaType:    "application/vnd.oci.image.index.v1+json",
+  	ArtifactType: "",
+  	Manifests: []v1.Descriptor{
+  		{MediaType: "application/vnd.oci.image.manifest.v1+json", Digest: s"sha256:2cc8222925759726b0274960e6fa961f339ac9e7c8e3d577721663552"..., Size: 397, Platform: &{Architecture: "amd64", OS: "linux"}, ...},
+  		{
+  			MediaType: "application/vnd.oci.image.manifest.v1+json",
+  			Digest: strings.Join({
+  				"sha256:",
+- 				"78a1e48cfe1b629012219e16cd415efa8ae0fbbd9e6ee868fa0c3f906eeee515",
++ 				"099241bf9fa13f25a1a1f2096b66feba7c5755b224e8f151f3fce8d7d9016093",
+  			}, ""),
+  			Size: 397,
+  			URLs: nil,
+  			... // 4 identical fields
+  		},
+  	},
+  	Subject:     nil,
+  	Annotations: nil,
+  }
+
+exit 1
