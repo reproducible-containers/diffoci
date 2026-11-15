@@ -14,7 +14,6 @@ func install(typeflag byte, mode int64, target string) types.Image {
 	return types.Image{Layers: [][]types.Entry{{
 		types.Dir("bin/"),
 		types.File("bin/busybox", "busybox\n"),
-		link(typeflag, mode, "bin/ls", target),
 		link(typeflag, mode, "bin/sh", target),
 	}}}
 }

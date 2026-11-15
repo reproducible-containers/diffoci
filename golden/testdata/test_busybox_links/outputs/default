@@ -1,10 +1,9 @@
 $ diffoci diff
 TYPE    NAME                                          INPUT-0                                                             INPUT-1
-Desc    application/vnd.oci.image.manifest.v1+json    3b351f1aabf2f1466db4d8fff4887ec109a6e409b7f2516582e6763f18d6275f    971135079355008687ba42d206fbb0c516263750979671045243fde1f77ae658
+Desc    application/vnd.oci.image.manifest.v1+json    e3517178ce95770908b4bcda124b983a3b3c8783f481ddf193a639c369d072cc    500981f34e56e301fd96b011e428caa52bcbfc02988ed1631d71b6ee0a2b312c
 Mani    ctx:/manifest                                 ?                                                                   ?
-Desc    application/vnd.oci.image.config.v1+json      cd6c923fc249dfb563cfc4a2788789b5366f058f326fe389fa5d64b38ea40e05    77ec11a66afbfc58cc7af88d480594c750ac3864b49fc06fd8a0897bc925941c
+Desc    application/vnd.oci.image.config.v1+json      97d8ff42bb120271682d711ec995b45dbf9620d40e8dfa71507062ad8c808c98    3c9fd9b980c77c862454cca25a79c26e5923c8473b649ac86437a54bd645b3e7
 Cfg     ctx:/config/config                            ?                                                                   ?
-Desc    application/vnd.oci.image.layer.v1.tar        742638727293ab815e7395718cc75c5892b7eeab7b449596af656fc9e89d5224    f9d2f278c61f883593e121d541eaf85c41fd2295f9b863975dbfeb2fb4da46ae
-File    bin/ls                                        Linkname bin/busybox                                                Linkname busybox
+Desc    application/vnd.oci.image.layer.v1.tar        d5f2637879e18419ff687ad9f7e4c08ca312e43b3f128e17473753edad72ecc1    10ad999518300043e1adc34260cb17020aa7d5e27c55549588c74547e4e28fcd
 File    bin/sh                                        Linkname bin/busybox                                                Linkname busybox
 exit 1
