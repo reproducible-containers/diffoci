@@ -1,0 +1,4 @@
+$ diffoci diff --semantic
+TYPE    NAME                                           INPUT-0                                        INPUT-1
+Desc    application/vnd.oci.image.layer.v1.tar+gzip    application/vnd.oci.image.layer.v1.tar+gzip    application/vnd.oci.image.layer.v1.tar+zstd
+exit 1

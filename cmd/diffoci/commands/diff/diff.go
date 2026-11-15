@@ -1,6 +1,7 @@
 package diff
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -16,6 +17,7 @@ import (
 	"github.com/reproducible-containers/diffoci/pkg/localpathutil"
 	"github.com/reproducible-containers/diffoci/pkg/platformutil"
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 )
 
 const Example = `  # Basic
@@ -93,21 +95,8 @@ func NewCommand() *cobra.Command {
 	return cmd
 }
 
-func action(cmd *cobra.Command, args []string) error {
-	backend, err := backendmanager.NewBackend(cmd)
-	if err != nil {
-		return err
-	}
-	ctx := backend.Context(cmd.Context())
-	flags := cmd.Flags()
-	plats, err := flagutil.ParsePlatformFlags(flags)
-	if err != nil {
-		return err
-	}
-	log.G(ctx).Infof("Target platforms: %v", platformutil.FormatSlice(plats))
-	platMC := platforms.Any(plats...)
-
-	var options diff.Options
+func ParseOptions(ctx context.Context, flags *pflag.FlagSet, options *diff.Options) error {
+	var err error
 	options.IgnoreHistory, err = flags.GetBool("ignore-history")
 	if err != nil {
 		return err
@@ -173,6 +162,27 @@ func action(cmd *cobra.Command, args []string) error {
 
 	options.MaxScale, err = flags.GetFloat64("max-scale")
 	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func action(cmd *cobra.Command, args []string) error {
+	backend, err := backendmanager.NewBackend(cmd)
+	if err != nil {
+		return err
+	}
+	ctx := backend.Context(cmd.Context())
+	flags := cmd.Flags()
+	plats, err := flagutil.ParsePlatformFlags(flags)
+	if err != nil {
+		return err
+	}
+	log.G(ctx).Infof("Target platforms: %v", platformutil.FormatSlice(plats))
+	platMC := platforms.Any(plats...)
+
+	var options diff.Options
+	if err := ParseOptions(ctx, flags, &options); err != nil {
 		return err
 	}
 
