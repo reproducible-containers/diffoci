@@ -1,0 +1,11 @@
+$ diffoci diff --semantic --report-dir=$REPORT_DIR
+TYPE    NAME      INPUT-0                 INPUT-1
+File    bin/ls    Linkname bin/busybox    Linkname busybox
+File    bin/sh    Linkname bin/busybox    Linkname busybox
+exit 1
+$REPORT_DIR/README.md
+$REPORT_DIR/input-0/layers-0/bin/ls
+$REPORT_DIR/input-0/layers-0/bin/sh
+$REPORT_DIR/input-1/layers-0/bin/ls
+$REPORT_DIR/input-1/layers-0/bin/sh
+$REPORT_DIR/report.json

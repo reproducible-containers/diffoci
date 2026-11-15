@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/containerd/containerd/v2/core/content"
+	"github.com/containerd/containerd/v2/pkg/archive/compression"
 	contentlocal "github.com/containerd/containerd/v2/plugins/content/local"
 	"github.com/containerd/platforms"
 	"github.com/google/go-cmp/cmp"
@@ -25,17 +26,20 @@ import (
 	"github.com/reproducible-containers/diffoci/cmd/diffoci/flagutil"
 	testapt "github.com/reproducible-containers/diffoci/golden/testdata/test_apt"
 	testbuildkitvslegacy "github.com/reproducible-containers/diffoci/golden/testdata/test_buildkit_vs_legacy"
+	testbusyboxlinks "github.com/reproducible-containers/diffoci/golden/testdata/test_busybox_links"
 	testchown "github.com/reproducible-containers/diffoci/golden/testdata/test_chown"
 	testdotprefix "github.com/reproducible-containers/diffoci/golden/testdata/test_dot_prefix"
 	testgnutar "github.com/reproducible-containers/diffoci/golden/testdata/test_gnu_tar"
 	testidentical "github.com/reproducible-containers/diffoci/golden/testdata/test_identical"
 	testmultiplatform "github.com/reproducible-containers/diffoci/golden/testdata/test_multiplatform"
 	testrebuild "github.com/reproducible-containers/diffoci/golden/testdata/test_rebuild"
+	testrecompressed "github.com/reproducible-containers/diffoci/golden/testdata/test_recompressed"
 	testretag "github.com/reproducible-containers/diffoci/golden/testdata/test_retag"
 	testrootentry "github.com/reproducible-containers/diffoci/golden/testdata/test_root_entry"
 	testsingleplatformsave "github.com/reproducible-containers/diffoci/golden/testdata/test_single_platform_save"
 	testsquash "github.com/reproducible-containers/diffoci/golden/testdata/test_squash"
 	testswappedinputs "github.com/reproducible-containers/diffoci/golden/testdata/test_swapped_inputs"
+	testzstd "github.com/reproducible-containers/diffoci/golden/testdata/test_zstd"
 	"github.com/reproducible-containers/diffoci/golden/types"
 	"github.com/reproducible-containers/diffoci/pkg/diff"
 )
@@ -43,12 +47,15 @@ import (
 var allTests = []types.GoldenTests{
 	testapt.Tests,
 	testbuildkitvslegacy.Tests,
+	testbusyboxlinks.Tests,
 	testchown.Tests,
 	testdotprefix.Tests,
 	testgnutar.Tests,
 	testidentical.Tests,
 	testmultiplatform.Tests,
 	testrebuild.Tests,
+	testrecompressed.Tests,
+	testzstd.Tests,
 	testretag.Tests,
 	testrootentry.Tests,
 	testsingleplatformsave.Tests,
@@ -203,9 +210,24 @@ func writeImage(ctx context.Context, t *testing.T, cs content.Ingester, img type
 		if err := tw.Close(); err != nil {
 			t.Fatal(err)
 		}
-		desc := writeBlob(ctx, t, cs, ocispec.MediaTypeImageLayer, buf.Bytes())
-		layers = append(layers, desc)
-		config.RootFS.DiffIDs = append(config.RootFS.DiffIDs, desc.Digest)
+		config.RootFS.DiffIDs = append(config.RootFS.DiffIDs, digest.FromBytes(buf.Bytes()))
+		var compressed bytes.Buffer
+		zw, err := compression.CompressStream(&compressed, img.Compression)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := zw.Write(buf.Bytes()); err != nil {
+			t.Fatal(err)
+		}
+		if err := zw.Close(); err != nil {
+			t.Fatal(err)
+		}
+		mediaType := map[compression.Compression]string{
+			compression.Uncompressed: ocispec.MediaTypeImageLayer,
+			compression.Gzip:         ocispec.MediaTypeImageLayerGzip,
+			compression.Zstd:         ocispec.MediaTypeImageLayerZstd,
+		}[img.Compression]
+		layers = append(layers, writeBlob(ctx, t, cs, mediaType, compressed.Bytes()))
 	}
 	return writeJSON(ctx, t, cs, ocispec.MediaTypeImageManifest, ocispec.Manifest{
 		Versioned:   specs.Versioned{SchemaVersion: 2},

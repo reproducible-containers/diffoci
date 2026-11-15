@@ -4,6 +4,7 @@ import (
 	"archive/tar"
 	"time"
 
+	"github.com/containerd/containerd/v2/pkg/archive/compression"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
@@ -20,6 +21,7 @@ type GoldenTest struct {
 
 type Image struct {
 	Layers      [][]Entry
+	Compression compression.Compression
 	Config      ocispec.Image
 	Annotations map[string]string
 	Manifests   []Image
