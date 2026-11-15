@@ -1,0 +1,6 @@
+$ diffoci diff
+TYPE    NAME                                          INPUT-0                                                             INPUT-1
+Desc    application/vnd.oci.image.manifest.v1+json    5b1a19123cfac2134ed1d91a743d524970ec4693f4a679f9868831229cd79630    cf649aeb81e03ec7ba8a9a42e0442429ec1431da0e8f4cc38a160ab1d2320c67
+Mani    ctx:/manifest                                 ?                                                                   ?
+Desc    application/vnd.oci.image.layer.v1.tar        application/vnd.oci.image.layer.v1.tar                              application/vnd.oci.image.layer.v1.tar+gzip
+exit 1

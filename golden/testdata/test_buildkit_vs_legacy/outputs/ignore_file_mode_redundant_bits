@@ -1,0 +1,4 @@
+$ diffoci diff --ignore-file-mode-redundant-bits
+TYPE    NAME                  INPUT-0    INPUT-1
+Cfg     ctx:/config/config    ?          ?
+exit 1

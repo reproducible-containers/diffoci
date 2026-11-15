@@ -1,0 +1,10 @@
+$ diffoci diff
+TYPE     NAME                                          INPUT-0                                                             INPUT-1
+Desc     application/vnd.oci.image.manifest.v1+json    b7e422f5d1c9db6cec14de58ae843ff9a44e1c0531ee9e961f7109107fc606d2    6ac230efbb1f201626088e6e18ecad6dce017a09e36293f56259a598cbf06437
+Mani     ctx:/manifest                                 ?                                                                   ?
+Desc     application/vnd.oci.image.config.v1+json      d073eb0ff41c6e78662086f929f00952e4a0bbb4f1ff852aaef07a4fde02d8fb    3561ce9609d49ef1196d020255ca4af9511d45acb42f45bf461d99d5df707ec0
+Cfg      ctx:/config/config                            ?                                                                   ?
+Desc     application/vnd.oci.image.layer.v1.tar        f8ff317cde5673c074af05a561855b5be8cd6b9da33d512f416d956c689f6aaf    4262457aebe4d800f09b7add54a73deb390c0170a373037ffff023214f131969
+Layer    ctx:/layers-0/layer                           name "app" only appears in input 0                                  
+Layer    ctx:/layers-0/layer                           name "./app" only appears in input 1                                
+exit 1

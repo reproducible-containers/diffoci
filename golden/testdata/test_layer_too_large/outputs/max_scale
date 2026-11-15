@@ -1,0 +1,6 @@
+$ diffoci diff --max-scale=0.001
+TYPE    NAME                                          INPUT-0                                    INPUT-1
+Desc    application/vnd.oci.image.index.v1+json       application/vnd.oci.image.index.v1+json    application/vnd.oci.image.manifest.v1+json
+Desc    application/vnd.oci.image.manifest.v1+json    ?                                          ?
+error: field "Layers[0]": too large tar blob (5244416 > 4294967 bytes)
+exit 2
