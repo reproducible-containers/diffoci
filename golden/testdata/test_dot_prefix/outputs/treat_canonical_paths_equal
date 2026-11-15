@@ -1,0 +1,2 @@
+$ diffoci diff --treat-canonical-paths-equal
+exit 0

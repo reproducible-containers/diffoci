@@ -1,0 +1,4 @@
+$ diffoci diff --ignore-file-timestamps
+TYPE    NAME                  INPUT-0    INPUT-1
+Cfg     ctx:/config/config    ?          ?
+exit 1

@@ -1,0 +1,2 @@
+$ diffoci diff --ignore-tar-format
+exit 0

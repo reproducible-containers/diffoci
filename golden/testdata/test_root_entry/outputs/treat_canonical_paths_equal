@@ -1,0 +1,4 @@
+$ diffoci diff --treat-canonical-paths-equal
+TYPE    NAME    INPUT-0       INPUT-1
+File    .       Mode 0x1ed    Mode 0x1c0
+exit 1
