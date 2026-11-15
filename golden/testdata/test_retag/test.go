@@ -21,6 +21,7 @@ var Tests = types.GoldenTests{
 	},
 	Tests: []types.GoldenTest{
 		{Args: nil, Output: "default"},
+		{Args: []string{"--verbose"}, Output: "verbose"},
 		{Args: []string{"--ignore-image-name"}, Output: "ignore_image_name"},
 	},
 }

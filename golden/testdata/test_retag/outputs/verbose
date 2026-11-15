@@ -1,0 +1,41 @@
+$ diffoci diff --verbose
+Event: "DescriptorMismatch"
+  &v1.Descriptor{
+  	MediaType: "application/vnd.oci.image.manifest.v1+json",
+  	Digest: strings.Join({
+  		"sha256:",
+- 		"51287a60a3d3abddebf74930b49d350e113f046f82ea4f9755398cc28e986eb6",
++ 		"7a5655fff582c5f133cb4b9955e9f9de7c7e02ee5abbc78cfbb87a1a6409719c",
+  	}, ""),
+- 	Size: 570,
++ 	Size: 596,
+  	URLs: nil,
+  	... // 1 ignored and 3 identical fields
+  }
+
+Event: "ManifestBlobMismatch"
+  v1.Manifest{
+  	... // 4 identical fields
+  	Layers:  {{MediaType: "application/vnd.oci.image.layer.v1.tar", Digest: s"sha256:f8ff317cde5673c074af05a561855b5be8cd6b9da33d512f416d956c6"..., Size: 2048}},
+  	Subject: nil,
+  	Annotations: map[string]string{
+- 		"containerd.io/distribution.source.docker.io":            "example/app",
++ 		"containerd.io/distribution.source.registry.example.com": "mirror/app",
+- 		"io.containerd.image.name":                               "docker.io/example/app:1.0",
++ 		"io.containerd.image.name":                               "registry.example.com/mirror/app:latest",
+- 		"org.opencontainers.image.ref.name":                      "1.0",
++ 		"org.opencontainers.image.ref.name":                      "latest",
+  	},
+  }
+
+Event: "ManifestBlobMismatch" (field "Annotations")
+  map[string]string{
+- 	"containerd.io/distribution.source.docker.io":            "example/app",
++ 	"containerd.io/distribution.source.registry.example.com": "mirror/app",
+- 	"io.containerd.image.name":                               "docker.io/example/app:1.0",
++ 	"io.containerd.image.name":                               "registry.example.com/mirror/app:latest",
+- 	"org.opencontainers.image.ref.name":                      "1.0",
++ 	"org.opencontainers.image.ref.name":                      "latest",
+  }
+
+exit 1

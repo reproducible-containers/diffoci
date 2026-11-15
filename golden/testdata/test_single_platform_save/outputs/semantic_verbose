@@ -1,0 +1,41 @@
+$ diffoci diff --semantic --verbose
+Event: "DescriptorMismatch"
+  &v1.Descriptor{
+  	MediaType: strings.Join({
+  		"application/vnd.oci.image.",
+- 		"index",
++ 		"manifest",
+  		".v1+json",
+  	}, ""),
+  	... // 4 ignored and 3 identical fields
+  }
+
+Event: "DescriptorMismatch"
+  &v1.Descriptor{
+  	... // 4 ignored and 2 identical fields
+- 	Platform:     &v1.Platform{Architecture: "amd64", OS: "linux"},
++ 	Platform:     nil,
+  	ArtifactType: "",
+  }
+
+Event: "ManifestBlobMismatch" (index vs manifest)
+  v1.Descriptor{
+  	MediaType: strings.Join({
+  		"application/vnd.oci.image.",
+- 		"index",
++ 		"manifest",
+  		".v1+json",
+  	}, ""),
+  	Digest: strings.Join({
+  		"sha256:",
+- 		"4632884b36a2d499d911e27a7d1bc7522c6c10d994dd80c7b0103108b6876cc8",
++ 		"2cc8222925759726b0274960e6fa961f339ac9e7c8e3d5777216635525852930",
+  	}, ""),
+- 	Size:        491,
++ 	Size:        397,
+  	URLs:        nil,
+  	Annotations: nil,
+  	... // 3 identical fields
+  }
+
+exit 1

@@ -21,5 +21,6 @@ var Tests = types.GoldenTests{
 	Tests: []types.GoldenTest{
 		{Args: nil, Output: "default"},
 		{Args: []string{"--semantic"}, Output: "semantic"},
+		{Args: []string{"--semantic", "--verbose"}, Output: "semantic_verbose"},
 	},
 }

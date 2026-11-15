@@ -23,6 +23,7 @@ var Tests = types.GoldenTests{
 	Images: [2]types.Image{build("arm64\n"), build("arm64, rebuilt\n")},
 	Tests: []types.GoldenTest{
 		{Args: []string{"--platform=linux/amd64"}, Output: "amd64"},
+		{Args: []string{"--platform=linux/amd64", "--verbose"}, Output: "amd64_verbose"},
 		{Args: []string{"--platform=linux/amd64", "--semantic"}, Output: "amd64_semantic"},
 		{Args: []string{"--platform=linux/arm64"}, Output: "arm64"},
 		{Args: []string{"--platform=linux/amd64,linux/arm64"}, Output: "both"},
