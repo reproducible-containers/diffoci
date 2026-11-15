@@ -26,6 +26,7 @@ import (
 	diffcmd "github.com/reproducible-containers/diffoci/cmd/diffoci/commands/diff"
 	"github.com/reproducible-containers/diffoci/cmd/diffoci/flagutil"
 	testapt "github.com/reproducible-containers/diffoci/golden/testdata/test_apt"
+	testaptupgrade "github.com/reproducible-containers/diffoci/golden/testdata/test_apt_upgrade"
 	testbuildkitvslegacy "github.com/reproducible-containers/diffoci/golden/testdata/test_buildkit_vs_legacy"
 	testbusyboxlinks "github.com/reproducible-containers/diffoci/golden/testdata/test_busybox_links"
 	testchown "github.com/reproducible-containers/diffoci/golden/testdata/test_chown"
@@ -36,6 +37,7 @@ import (
 	testidentical "github.com/reproducible-containers/diffoci/golden/testdata/test_identical"
 	testlongpath "github.com/reproducible-containers/diffoci/golden/testdata/test_long_path"
 	testmultiplatform "github.com/reproducible-containers/diffoci/golden/testdata/test_multiplatform"
+	testreaddirorder "github.com/reproducible-containers/diffoci/golden/testdata/test_readdir_order"
 	testrebuild "github.com/reproducible-containers/diffoci/golden/testdata/test_rebuild"
 	testrecompressed "github.com/reproducible-containers/diffoci/golden/testdata/test_recompressed"
 	testretag "github.com/reproducible-containers/diffoci/golden/testdata/test_retag"
@@ -52,6 +54,7 @@ import (
 
 var allTests = []types.GoldenTests{
 	testapt.Tests,
+	testaptupgrade.Tests,
 	testbuildkitvslegacy.Tests,
 	testbusyboxlinks.Tests,
 	testchown.Tests,
@@ -62,6 +65,7 @@ var allTests = []types.GoldenTests{
 	testidentical.Tests,
 	testlongpath.Tests,
 	testmultiplatform.Tests,
+	testreaddirorder.Tests,
 	testrebuild.Tests,
 	testrecompressed.Tests,
 	testzstd.Tests,

@@ -1,0 +1,5 @@
+$ diffoci diff --semantic
+TYPE    NAME                       INPUT-0                                                             INPUT-1
+File    var/lib/dpkg/status-old    75f451ae5cce03f0ebd9039bd623157040bf82218ad016abf35fd123e90d6fe1    7775bbc522c303276f727b0ff8b976db5b2d30794518651ea7a5b0eb2bdc478c
+File    var/log/dpkg.log           8a76572809a8eb383c83ff3a49abe8d64d9bd82b9fdc8da014c06b74bc05f276    d191e1b26883be7d875bc7aeafbd8d614fdf203a6b50695a3e8aa960229ce218
+exit 1
