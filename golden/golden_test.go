@@ -24,12 +24,14 @@ import (
 	diffcmd "github.com/reproducible-containers/diffoci/cmd/diffoci/commands/diff"
 	"github.com/reproducible-containers/diffoci/cmd/diffoci/flagutil"
 	testapt "github.com/reproducible-containers/diffoci/golden/testdata/test_apt"
+	testaptupgrade "github.com/reproducible-containers/diffoci/golden/testdata/test_apt_upgrade"
 	testbuildkitvslegacy "github.com/reproducible-containers/diffoci/golden/testdata/test_buildkit_vs_legacy"
 	testchown "github.com/reproducible-containers/diffoci/golden/testdata/test_chown"
 	testdotprefix "github.com/reproducible-containers/diffoci/golden/testdata/test_dot_prefix"
 	testgnutar "github.com/reproducible-containers/diffoci/golden/testdata/test_gnu_tar"
 	testidentical "github.com/reproducible-containers/diffoci/golden/testdata/test_identical"
 	testmultiplatform "github.com/reproducible-containers/diffoci/golden/testdata/test_multiplatform"
+	testreaddirorder "github.com/reproducible-containers/diffoci/golden/testdata/test_readdir_order"
 	testrebuild "github.com/reproducible-containers/diffoci/golden/testdata/test_rebuild"
 	testretag "github.com/reproducible-containers/diffoci/golden/testdata/test_retag"
 	testrootentry "github.com/reproducible-containers/diffoci/golden/testdata/test_root_entry"
@@ -42,12 +44,14 @@ import (
 
 var allTests = []types.GoldenTests{
 	testapt.Tests,
+	testaptupgrade.Tests,
 	testbuildkitvslegacy.Tests,
 	testchown.Tests,
 	testdotprefix.Tests,
 	testgnutar.Tests,
 	testidentical.Tests,
 	testmultiplatform.Tests,
+	testreaddirorder.Tests,
 	testrebuild.Tests,
 	testretag.Tests,
 	testrootentry.Tests,
