@@ -23,8 +23,10 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"maps"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 	_ "unsafe"
@@ -99,7 +101,29 @@ func Entry(ctx context.Context, root string, hdr *tar.Header, r io.Reader) (*Ent
 	digester := digest.SHA256.Digester()
 	hasher := digester.Hash()
 	teeR := io.TeeReader(r, hasher)
-	if err := createTarFile(ctx, path, root, hdr, teeR, true); err != nil {
+	createHdr := hdr
+	if os.Geteuid() != 0 && runtime.GOOS == "linux" {
+		// setting security.* xattrs requires root
+		h := *hdr
+		//nolint:staticcheck // SA1019: hdr.Xattrs has been deprecated since Go 1.10: Use PAXRecords instead.
+		h.Xattrs = maps.Clone(hdr.Xattrs)
+		h.PAXRecords = maps.Clone(hdr.PAXRecords)
+		//nolint:staticcheck // SA1019: hdr.Xattrs has been deprecated since Go 1.10: Use PAXRecords instead.
+		for k := range h.Xattrs {
+			if strings.HasPrefix(k, "security.") {
+				log.G(ctx).Debugf("Ignoring xattr %q", k)
+				delete(h.Xattrs, k)
+			}
+		}
+		for k := range h.PAXRecords {
+			if strings.HasPrefix(k, "SCHILY.xattr.security.") {
+				log.G(ctx).Debugf("Ignoring PAX record %q", k)
+				delete(h.PAXRecords, k)
+			}
+		}
+		createHdr = &h
+	}
+	if err := createTarFile(ctx, path, root, createHdr, teeR, true); err != nil {
 		return nil, err
 	}
 
