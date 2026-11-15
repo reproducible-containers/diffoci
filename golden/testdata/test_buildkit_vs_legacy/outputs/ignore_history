@@ -1,0 +1,4 @@
+$ diffoci diff --ignore-history
+TYPE    NAME    INPUT-0        INPUT-1
+File    app     Mode 0x81ed    Mode 0x1ed
+exit 1

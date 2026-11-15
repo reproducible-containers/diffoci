@@ -1,0 +1,233 @@
+package golden
+
+import (
+	"archive/tar"
+	"bytes"
+	"context"
+	"encoding/json"
+	"flag"
+	"fmt"
+	"io/fs"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/containerd/containerd/v2/core/content"
+	contentlocal "github.com/containerd/containerd/v2/plugins/content/local"
+	"github.com/containerd/platforms"
+	"github.com/google/go-cmp/cmp"
+	"github.com/opencontainers/go-digest"
+	specs "github.com/opencontainers/image-spec/specs-go"
+	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
+	diffcmd "github.com/reproducible-containers/diffoci/cmd/diffoci/commands/diff"
+	"github.com/reproducible-containers/diffoci/cmd/diffoci/flagutil"
+	testapt "github.com/reproducible-containers/diffoci/golden/testdata/test_apt"
+	testaptupgrade "github.com/reproducible-containers/diffoci/golden/testdata/test_apt_upgrade"
+	testbuildkitvslegacy "github.com/reproducible-containers/diffoci/golden/testdata/test_buildkit_vs_legacy"
+	testchown "github.com/reproducible-containers/diffoci/golden/testdata/test_chown"
+	testdotprefix "github.com/reproducible-containers/diffoci/golden/testdata/test_dot_prefix"
+	testgnutar "github.com/reproducible-containers/diffoci/golden/testdata/test_gnu_tar"
+	testidentical "github.com/reproducible-containers/diffoci/golden/testdata/test_identical"
+	testmultiplatform "github.com/reproducible-containers/diffoci/golden/testdata/test_multiplatform"
+	testreaddirorder "github.com/reproducible-containers/diffoci/golden/testdata/test_readdir_order"
+	testrebuild "github.com/reproducible-containers/diffoci/golden/testdata/test_rebuild"
+	testretag "github.com/reproducible-containers/diffoci/golden/testdata/test_retag"
+	testrootentry "github.com/reproducible-containers/diffoci/golden/testdata/test_root_entry"
+	testsingleplatformsave "github.com/reproducible-containers/diffoci/golden/testdata/test_single_platform_save"
+	testsquash "github.com/reproducible-containers/diffoci/golden/testdata/test_squash"
+	testswappedinputs "github.com/reproducible-containers/diffoci/golden/testdata/test_swapped_inputs"
+	"github.com/reproducible-containers/diffoci/golden/types"
+	"github.com/reproducible-containers/diffoci/pkg/diff"
+)
+
+var allTests = []types.GoldenTests{
+	testapt.Tests,
+	testaptupgrade.Tests,
+	testbuildkitvslegacy.Tests,
+	testchown.Tests,
+	testdotprefix.Tests,
+	testgnutar.Tests,
+	testidentical.Tests,
+	testmultiplatform.Tests,
+	testreaddirorder.Tests,
+	testrebuild.Tests,
+	testretag.Tests,
+	testrootentry.Tests,
+	testsingleplatformsave.Tests,
+	testsquash.Tests,
+	testswappedinputs.Tests,
+}
+
+var update = flag.Bool("update", false, "Whether to update expected output instead of testing it")
+
+var defaultPlatform = ocispec.Platform{OS: "linux", Architecture: "amd64"}
+
+// archive/tar returns mtimes in local time, and the output prints them as such.
+func init() {
+	time.Local = time.UTC
+}
+
+func TestGolden(t *testing.T) {
+	for _, tests := range allTests {
+		t.Run(tests.Name, func(t *testing.T) {
+			t.Parallel()
+			ctx := context.Background()
+			cs, err := contentlocal.NewStore(t.TempDir())
+			if err != nil {
+				t.Fatal(err)
+			}
+			descs := [2]ocispec.Descriptor{
+				writeImage(ctx, t, cs, tests.Images[0]),
+				writeImage(ctx, t, cs, tests.Images[1]),
+			}
+			for _, test := range tests.Tests {
+				t.Run(test.Output, func(t *testing.T) {
+					got := runDiff(ctx, t, cs, descs, test.Args)
+					p := filepath.Join("testdata", tests.Name, "outputs", test.Output)
+					if *update {
+						if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+							t.Fatal(err)
+						}
+						if err := os.WriteFile(p, []byte(got), 0o644); err != nil {
+							t.Fatal(err)
+						}
+						return
+					}
+					want, err := os.ReadFile(p)
+					if err != nil {
+						t.Fatal(err)
+					}
+					if d := cmp.Diff(string(want), got); d != "" {
+						t.Errorf("%s mismatch (-want +got):\n%s", p, d)
+					}
+				})
+			}
+		})
+	}
+}
+
+// mirrors action in cmd/diffoci/commands/diff, with the images read from cs instead of a backend
+func runDiff(ctx context.Context, t *testing.T, cs content.Provider, descs [2]ocispec.Descriptor, args []string) string {
+	t.Helper()
+	reportDir := t.TempDir()
+	argv := make([]string, len(args))
+	for i, a := range args {
+		argv[i] = strings.ReplaceAll(a, "$REPORT_DIR", reportDir)
+	}
+	cmd := diffcmd.NewCommand()
+	flags := cmd.Flags()
+	if err := cmd.ParseFlags(argv); err != nil {
+		t.Fatal(err)
+	}
+	if !flags.Changed("platform") {
+		if err := flags.Set("platform", platforms.Format(defaultPlatform)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := cmd.PreRunE(cmd, nil); err != nil {
+		t.Fatal(err)
+	}
+	plats, err := flagutil.ParsePlatformFlags(flags)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var options diff.Options
+	if err := diffcmd.ParseOptions(ctx, flags, &options); err != nil {
+		t.Fatal(err)
+	}
+	var stdout bytes.Buffer
+	fmt.Fprintln(&stdout, strings.Join(append([]string{"$ diffoci diff"}, args...), " "))
+	options.EventHandler = diff.NewDefaultEventHandler(&stdout)
+	var exitCode int
+	report, err := diff.Diff(ctx, cs, descs, platforms.Any(plats...), &options)
+	if report != nil && len(report.Children) > 0 {
+		exitCode = 1
+	}
+	if err != nil {
+		fmt.Fprintf(&stdout, "error: %v\n", err)
+		exitCode = 2
+	}
+	fmt.Fprintf(&stdout, "exit %d\n", exitCode)
+	if options.ReportDir != "" {
+		if err := filepath.WalkDir(reportDir, func(p string, d fs.DirEntry, err error) error {
+			if err == nil && !d.IsDir() {
+				fmt.Fprintf(&stdout, "$REPORT_DIR%s\n", strings.TrimPrefix(p, reportDir))
+			}
+			return err
+		}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return stdout.String()
+}
+
+func writeImage(ctx context.Context, t *testing.T, cs content.Ingester, img types.Image) ocispec.Descriptor {
+	t.Helper()
+	if len(img.Manifests) > 0 {
+		var manifests []ocispec.Descriptor
+		for _, m := range img.Manifests {
+			desc := writeImage(ctx, t, cs, m)
+			desc.Platform = &m.Config.Platform
+			manifests = append(manifests, desc)
+		}
+		return writeJSON(ctx, t, cs, ocispec.MediaTypeImageIndex, ocispec.Index{
+			Versioned:   specs.Versioned{SchemaVersion: 2},
+			MediaType:   ocispec.MediaTypeImageIndex,
+			Manifests:   manifests,
+			Annotations: img.Annotations,
+		})
+	}
+	config := img.Config
+	if config.Architecture == "" {
+		config.Platform = defaultPlatform
+	}
+	config.RootFS.Type = "layers"
+	var layers []ocispec.Descriptor
+	for _, l := range img.Layers {
+		var buf bytes.Buffer
+		tw := tar.NewWriter(&buf)
+		for _, e := range l {
+			hdr := e.Header
+			hdr.Size = int64(len(e.Body))
+			if err := tw.WriteHeader(&hdr); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := tw.Write([]byte(e.Body)); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if err := tw.Close(); err != nil {
+			t.Fatal(err)
+		}
+		desc := writeBlob(ctx, t, cs, ocispec.MediaTypeImageLayer, buf.Bytes())
+		layers = append(layers, desc)
+		config.RootFS.DiffIDs = append(config.RootFS.DiffIDs, desc.Digest)
+	}
+	return writeJSON(ctx, t, cs, ocispec.MediaTypeImageManifest, ocispec.Manifest{
+		Versioned:   specs.Versioned{SchemaVersion: 2},
+		MediaType:   ocispec.MediaTypeImageManifest,
+		Config:      writeJSON(ctx, t, cs, ocispec.MediaTypeImageConfig, config),
+		Layers:      layers,
+		Annotations: img.Annotations,
+	})
+}
+
+func writeJSON(ctx context.Context, t *testing.T, cs content.Ingester, mediaType string, v any) ocispec.Descriptor {
+	t.Helper()
+	b, err := json.Marshal(v)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return writeBlob(ctx, t, cs, mediaType, b)
+}
+
+func writeBlob(ctx context.Context, t *testing.T, cs content.Ingester, mediaType string, b []byte) ocispec.Descriptor {
+	t.Helper()
+	desc := ocispec.Descriptor{MediaType: mediaType, Digest: digest.FromBytes(b), Size: int64(len(b))}
+	if err := content.WriteBlob(ctx, cs, desc.Digest.String(), bytes.NewReader(b), desc); err != nil {
+		t.Fatal(err)
+	}
+	return desc
+}
