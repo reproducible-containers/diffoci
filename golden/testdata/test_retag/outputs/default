@@ -1,0 +1,6 @@
+$ diffoci diff
+TYPE    NAME                                          INPUT-0                                                             INPUT-1
+Desc    application/vnd.oci.image.manifest.v1+json    51287a60a3d3abddebf74930b49d350e113f046f82ea4f9755398cc28e986eb6    7a5655fff582c5f133cb4b9955e9f9de7c7e02ee5abbc78cfbb87a1a6409719c
+Mani    ctx:/manifest                                 ?                                                                   ?
+Mani    ctx:/annotations                              field "Annotations"                                                 
+exit 1
