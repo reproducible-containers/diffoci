@@ -1,0 +1,7 @@
+$ diffoci diff --semantic
+TYPE    NAME                                                    INPUT-0                                                 INPUT-1
+Desc    application/vnd.docker.distribution.manifest.v2+json    application/vnd.docker.distribution.manifest.v2+json    application/vnd.oci.image.manifest.v1+json
+Mani    ctx:/manifest                                           ?                                                       ?
+Desc    application/vnd.docker.container.image.v1+json          application/vnd.docker.container.image.v1+json          application/vnd.oci.image.config.v1+json
+Desc    application/vnd.docker.image.rootfs.diff.tar            application/vnd.docker.image.rootfs.diff.tar            application/vnd.oci.image.layer.v1.tar
+exit 1

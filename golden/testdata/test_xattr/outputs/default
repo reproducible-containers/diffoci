@@ -1,0 +1,9 @@
+$ diffoci diff
+TYPE    NAME                                          INPUT-0                                                             INPUT-1
+Desc    application/vnd.oci.image.manifest.v1+json    22f2c1ab5c5dd4c0eae085e69e153e965dc3684cd2dacbf1f4736ead6a56c38e    91a0cb9bf5dbcc45ef1ecd2eaa981eaa58d139e662646577b0f6ab569619fe52
+Mani    ctx:/manifest                                 ?                                                                   ?
+Desc    application/vnd.oci.image.config.v1+json      53c8054f6c0cb31c1c58fdb0b2ae698a486af832d7e0413519d4f9f189e034b3    51f9db1bcb5f1935fec5095123e6dfa5eff912bd507b8a7ba97e692bd4fbac0c
+Cfg     ctx:/config/config                            ?                                                                   ?
+Desc    application/vnd.oci.image.layer.v1.tar        ece55628aeaff016ce079f2393b299263d64dad6829f6f5586a475dd5263a055    1c4d9695127978666603d90abe095db9b1c9456854c2fabc6f2ebd0768c071d0
+File    app.tar.gz                                    Format USTAR (2)                                                    Format PAX (4)
+exit 1

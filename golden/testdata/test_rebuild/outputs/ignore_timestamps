@@ -1,0 +1,2 @@
+$ diffoci diff --ignore-timestamps
+exit 0

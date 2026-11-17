@@ -1,0 +1,2 @@
+$ diffoci diff --ignore-image-name
+exit 0

@@ -1,0 +1,2 @@
+$ diffoci diff --semantic
+exit 0

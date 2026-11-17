@@ -1,0 +1,9 @@
+$ diffoci diff
+TYPE    NAME                                          INPUT-0                                                             INPUT-1
+Desc    application/vnd.oci.image.manifest.v1+json    55ee52db54ffd6e6e08118cd9d489be617d7b716ea7a240cb94605fd6642b752    e60ab59a625515cf093e9af8b33fc1a201d3327ddb6d4e67eb4e217f30441832
+Mani    ctx:/manifest                                 ?                                                                   ?
+Desc    application/vnd.oci.image.config.v1+json      a856a7c01c6f626699d18ad0bc35fb312b7d3350f974c90f9880149e39bf5a0e    f342b956aea047fdfec27f16b8def30a8988a1eed451e5100b6ea7cc6d3ae10a
+Cfg     ctx:/config/config                            ?                                                                   ?
+Desc    application/vnd.oci.image.layer.v1.tar        2d55a8fd7cb2963577f69cd4f68b38b0f3d4e6614263b5dd075c8f356645203d    dc10bad5d48a2b416c96fd722efa6e8d0f6b32f7e291f6124d69f40cff5494e0
+File    ./                                            Mode 0x1ed                                                          Mode 0x1c0
+exit 1

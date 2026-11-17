@@ -1,0 +1,9 @@
+$ diffoci diff
+TYPE    NAME                                          INPUT-0                                                             INPUT-1
+Desc    application/vnd.oci.image.manifest.v1+json    e3517178ce95770908b4bcda124b983a3b3c8783f481ddf193a639c369d072cc    500981f34e56e301fd96b011e428caa52bcbfc02988ed1631d71b6ee0a2b312c
+Mani    ctx:/manifest                                 ?                                                                   ?
+Desc    application/vnd.oci.image.config.v1+json      97d8ff42bb120271682d711ec995b45dbf9620d40e8dfa71507062ad8c808c98    3c9fd9b980c77c862454cca25a79c26e5923c8473b649ac86437a54bd645b3e7
+Cfg     ctx:/config/config                            ?                                                                   ?
+Desc    application/vnd.oci.image.layer.v1.tar        d5f2637879e18419ff687ad9f7e4c08ca312e43b3f128e17473753edad72ecc1    10ad999518300043e1adc34260cb17020aa7d5e27c55549588c74547e4e28fcd
+File    bin/sh                                        Linkname bin/busybox                                                Linkname busybox
+exit 1

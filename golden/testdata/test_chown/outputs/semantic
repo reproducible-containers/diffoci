@@ -1,0 +1,4 @@
+$ diffoci diff --semantic
+TYPE    NAME    INPUT-0    INPUT-1
+File    app     Uid 0      Uid 1000
+exit 1
