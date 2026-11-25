@@ -1,0 +1,5 @@
+$ diffoci diff --platform=linux/amd64
+TYPE    NAME                                       INPUT-0                                                             INPUT-1
+Desc    application/vnd.oci.image.index.v1+json    4632884b36a2d499d911e27a7d1bc7522c6c10d994dd80c7b0103108b6876cc8    7cdaa6a6c7f1b52790c33b912096478f43d5ba073ffd93a3331015a436c18816
+Idx     ctx:/index                                 ?                                                                   ?
+exit 1

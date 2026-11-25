@@ -1,0 +1,11 @@
+$ diffoci diff --platform=linux/amd64,linux/arm64
+TYPE    NAME                                          INPUT-0                                                             INPUT-1
+Desc    application/vnd.oci.image.index.v1+json       4632884b36a2d499d911e27a7d1bc7522c6c10d994dd80c7b0103108b6876cc8    7cdaa6a6c7f1b52790c33b912096478f43d5ba073ffd93a3331015a436c18816
+Idx     ctx:/index                                    ?                                                                   ?
+Desc    application/vnd.oci.image.manifest.v1+json    78a1e48cfe1b629012219e16cd415efa8ae0fbbd9e6ee868fa0c3f906eeee515    099241bf9fa13f25a1a1f2096b66feba7c5755b224e8f151f3fce8d7d9016093
+Mani    ctx:/manifests-1/manifest                     ?                                                                   ?
+Desc    application/vnd.oci.image.config.v1+json      1e38acc4c8a3b9067aeddb6b84295b87ed9aab119d74a111fe7eef7d8718dce9    747be76709dcd027eb7a0fe6de02d923dc3ff71ed4e8fc2cf258e727d4bab6e5
+Cfg     ctx:/manifests-1/config/config                ?                                                                   ?
+Desc    application/vnd.oci.image.layer.v1.tar        603084065d38cfba1a683a949ab3587b1d6cc4627d5a5aedd97635bb5ffb5267    493ca70aee4c0d4944aedbffd1a44e3a219b87d35ffcdb54d4facd6d0437e8b7
+File    app                                           c1669e1d8edca98769c37d494b76442a1d6e5ffffd7b4da1fb63aef8ebaf6f01    9b27b69e682db513e5e87a58d42f78ca0957624cf0a142231fe303a5bc383c9a
+exit 1
