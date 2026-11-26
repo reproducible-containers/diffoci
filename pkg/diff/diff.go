@@ -236,7 +236,7 @@ func (d *differ) diff(ctx context.Context, node *EventTreeNode, in [2]EventInput
 				},
 			}
 			if diffErr := d.diff(ctx, &newNode, childInputs); diffErr != nil {
-				errs = append(errs, err)
+				errs = append(errs, diffErr)
 			}
 			if len(newNode.Children) > 0 {
 				if err := d.raiseEventWithEventTreeNode(ctx, node, &newNode); err != nil {

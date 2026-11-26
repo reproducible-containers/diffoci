@@ -35,6 +35,7 @@ import (
 	testdotprefix "github.com/reproducible-containers/diffoci/golden/testdata/test_dot_prefix"
 	testgnutar "github.com/reproducible-containers/diffoci/golden/testdata/test_gnu_tar"
 	testidentical "github.com/reproducible-containers/diffoci/golden/testdata/test_identical"
+	testlayertoolarge "github.com/reproducible-containers/diffoci/golden/testdata/test_layer_too_large"
 	testlongpath "github.com/reproducible-containers/diffoci/golden/testdata/test_long_path"
 	testmultiplatform "github.com/reproducible-containers/diffoci/golden/testdata/test_multiplatform"
 	testreaddirorder "github.com/reproducible-containers/diffoci/golden/testdata/test_readdir_order"
@@ -63,6 +64,7 @@ var allTests = []types.GoldenTests{
 	testdotprefix.Tests,
 	testgnutar.Tests,
 	testidentical.Tests,
+	testlayertoolarge.Tests,
 	testlongpath.Tests,
 	testmultiplatform.Tests,
 	testreaddirorder.Tests,
