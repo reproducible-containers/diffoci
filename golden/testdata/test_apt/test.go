@@ -20,5 +20,7 @@ var Tests = types.GoldenTests{
 	Tests: []types.GoldenTest{
 		{Args: []string{"--semantic"}, Output: "semantic"},
 		{Args: []string{"--semantic", "--report-dir=$REPORT_DIR"}, Output: "report_dir"},
+		{Args: []string{"--semantic", "--ignore-path=/var/log/dpkg.log"}, Output: "ignore_path"},
+		{Args: []string{"--semantic", "--ignore-path=/var/log"}, Output: "ignore_path_dir"},
 	},
 }
