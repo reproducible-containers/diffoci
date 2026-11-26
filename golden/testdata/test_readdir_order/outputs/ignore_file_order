@@ -1,0 +1,2 @@
+$ diffoci diff --ignore-file-order
+exit 0
