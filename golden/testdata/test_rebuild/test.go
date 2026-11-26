@@ -25,6 +25,7 @@ var Tests = types.GoldenTests{
 	Tests: []types.GoldenTest{
 		{Args: nil, Output: "default"},
 		{Args: []string{"--ignore-file-timestamps"}, Output: "ignore_file_timestamps"},
+		{Args: []string{"--ignore-file-timestamps", "--verbose"}, Output: "ignore_file_timestamps_verbose"},
 		{Args: []string{"--ignore-image-timestamps"}, Output: "ignore_image_timestamps"},
 		{Args: []string{"--ignore-timestamps"}, Output: "ignore_timestamps"},
 		{Args: []string{"--semantic"}, Output: "semantic"},

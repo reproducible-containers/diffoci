@@ -1238,18 +1238,19 @@ func (h *defaultEventHandler) Flush() error {
 	return h.tw.Flush()
 }
 
-var VerboseEventHandler = newVerboseEventHandler()
+var VerboseEventHandler = NewVerboseEventHandler(os.Stdout)
 
-func newVerboseEventHandler() EventHandler {
-	return &verboseEventHandler{}
+func NewVerboseEventHandler(w io.Writer) EventHandler {
+	return &verboseEventHandler{w: w}
 }
 
 type verboseEventHandler struct {
+	w io.Writer
 }
 
 func (h *verboseEventHandler) HandleEventTreeNode(ctx context.Context, node *EventTreeNode) error {
-	fmt.Println("Event: " + node.Event.String())
-	return nil
+	_, err := fmt.Fprintln(h.w, "Event: "+node.Event.String())
+	return err
 }
 
 const (
