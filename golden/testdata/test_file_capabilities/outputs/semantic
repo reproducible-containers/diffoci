@@ -1,0 +1,4 @@
+$ diffoci diff --semantic
+TYPE    NAME            INPUT-0    INPUT-1
+File    usr/bin/ping    ?          ?
+exit 1
